@@ -5,6 +5,7 @@ from __future__ import annotations
 import sqlite3
 from collections.abc import Sequence
 
+from . import candidates
 from .db import Timer, columns
 from .model import Context, describe
 
@@ -129,6 +130,9 @@ def enrich(raw: dict, ctx: Context, *, row_bytes: float | None = None) -> dict:
         out["category"] = categorize(item, ctx, max_ts)
         if not out["name"]:
             out["name"] = item["stat_name"]
+        if ctx.usage is not None:
+            out["refs"] = sorted(ctx.usage.get(item["statistic_id"], ()))
+            out["verdict"], out["reasons"] = candidates.assess(out, out["refs"])
         items.append(out)
         cats[out["category"]]["count"] += 1
         cats[out["category"]]["rows"] += item["rows"]
@@ -141,8 +145,12 @@ def enrich(raw: dict, ctx: Context, *, row_bytes: float | None = None) -> dict:
         c["bytes"] = round(c["rows"] * row_bytes)
     diagnostic["bytes"] = round(diagnostic["rows"] * row_bytes)
     items.sort(key=lambda i: -i["rows"])
+    cleanup = None
+    if ctx.usage is not None:
+        cleanup = {**candidates.summarize(items, row_bytes), "sources": ctx.usage_sources or {}}
     return {
         "items": items,
+        "cleanup": cleanup,
         "categories": list(cats.values()),
         "diagnostic": diagnostic,
         "total_rows": total_rows,

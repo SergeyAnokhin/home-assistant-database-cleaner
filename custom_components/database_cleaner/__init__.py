@@ -7,7 +7,7 @@ connection and never writes to the recorder database.
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from homeassistant.components import frontend, panel_custom
@@ -34,6 +34,7 @@ from .const import (
 from .coordinator import DatabaseCleanerCoordinator
 from .engine import Analyzer
 from .engine.db import sqlite_path_from_url
+from .usage import UsageCache
 from .websocket_api import async_register_websocket_commands
 
 _LOGGER = logging.getLogger(__name__)
@@ -48,6 +49,7 @@ _STATIC_REGISTERED = f"{DOMAIN}_static_registered"
 class DatabaseCleanerData:
     analyzer: Analyzer
     coordinator: DatabaseCleanerCoordinator
+    usage: UsageCache = field(default_factory=UsageCache)
 
 
 type DatabaseCleanerConfigEntry = ConfigEntry[DatabaseCleanerData]

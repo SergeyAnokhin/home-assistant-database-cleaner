@@ -28,6 +28,11 @@ class Context:
     entities: Mapping[str, EntityInfo] = field(default_factory=dict)
     # recorder entity filter: True -> entity is recorded. None -> no filter configured.
     is_recorded: Callable[[str], bool] | None = None
+    # statistic_id -> references like "energy", "dashboard:Home", "automation:automation.x".
+    # None -> usage was not collected (no verdicts are produced).
+    usage: Mapping[str, list[str]] | None = None
+    # What was scanned to build `usage` (shown in the UI as coverage).
+    usage_sources: dict | None = None
 
     def info(self, entity_id: str) -> EntityInfo | None:
         return self.entities.get(entity_id)

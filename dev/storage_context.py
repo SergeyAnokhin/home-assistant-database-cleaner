@@ -10,7 +10,8 @@ import fnmatch
 import json
 from pathlib import Path
 
-from engine.model import Context, EntityInfo  # noqa: I001 (path set up by caller)
+from engine.candidates import entity_tokens  # noqa: I001 (path set up by caller)
+from engine.model import Context, EntityInfo
 
 
 def _load(storage: Path, name: str) -> dict:
@@ -58,8 +59,58 @@ def recorder_filter(path: Path):
     return is_recorded
 
 
-def load_context(storage: Path, exclude_json: Path | None = None) -> Context:
-    return Context(
+def load_usage(storage: Path) -> tuple[dict[str, list[str]], dict]:
+    """References from what a .storage copy contains: energy, UI dashboards, helper config entries.
+
+    Automations/scripts/scenes live in YAML and are not part of .storage, so
+    they are reported as not scanned (inside HA the integration scans them).
+    """
+    refs: dict[str, set[str]] = {}
+
+    def add(ids: set[str], ref: str) -> None:
+        for eid in ids:
+            refs.setdefault(eid, set()).add(ref)
+
+    energy = _load(storage, "energy")
+    energy_ids = entity_tokens(energy)
+    add(energy_ids, "energy")
+
+    titles = {d.get("url_path"): d.get("title") for d in _load(storage, "lovelace_dashboards").get("items", [])}
+    dashboards = 0
+    for path in sorted(storage.glob("lovelace*")):
+        if path.name in ("lovelace_dashboards", "lovelace_resources"):
+            continue
+        url = path.name.split(".", 1)[1] if "." in path.name else None
+        title = titles.get(url) or url or "Overview"
+        add(entity_tokens(_load(storage, path.name)), f"dashboard:{title}")
+        dashboards += 1
+
+    helpers = 0
+    for entry in _load(storage, "core.config_entries").get("entries", []):
+        ids = entity_tokens({"o": entry.get("options"), "d": entry.get("data")})
+        if ids:
+            helpers += 1
+            add(ids, f"helper:{entry['domain']}:{entry.get('title') or entry['domain']}")
+
+    sources = {
+        "energy": len(energy_ids),
+        "dashboards": dashboards,
+        "helpers": helpers,
+        "automations": None,
+        "scripts": None,
+        "scenes": None,
+        "groups": None,
+        "persons": None,
+        "errors": [],
+    }
+    return {k: sorted(v) for k, v in refs.items()}, sources
+
+
+def load_context(storage: Path, exclude_json: Path | None = None, *, usage: bool = False) -> Context:
+    ctx = Context(
         entities=load_entities(storage),
         is_recorded=recorder_filter(exclude_json) if exclude_json else None,
     )
+    if usage:
+        ctx.usage, ctx.usage_sources = load_usage(storage)
+    return ctx

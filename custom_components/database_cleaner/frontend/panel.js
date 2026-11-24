@@ -149,6 +149,54 @@ const I18N = {
     d: "d",
     mib: "MiB",
     commit_note: "The recorder writes in batches every {s} s, so the most recent seconds are not visible yet.",
+    tab_candidates: "Candidates",
+    v_safe: "Can be deleted",
+    v_unused: "Not used anywhere",
+    v_review: "Review",
+    v_used: "In use",
+    v_protected: "Energy (protected)",
+    v_hint_safe: "the entity is gone, disabled, excluded or has no states — and nothing references it",
+    v_hint_unused: "the sensor is alive, but no dashboard, automation, script or helper uses it",
+    v_hint_review: "statistics stopped, YAML entity without registry entry, or external statistics",
+    v_hint_used: "referenced by a dashboard, automation, script, scene, group, person or helper",
+    v_hint_protected: "feeds the Energy dashboard — never offered for deletion",
+    r_orphan: "entity gone",
+    r_disabled: "disabled",
+    r_excluded: "excluded",
+    r_no_states: "no states",
+    r_stopped: "stopped",
+    r_no_registry: "not in registry",
+    r_external: "external",
+    r_diagnostic: "diagnostic",
+    r_derived: "derived helper",
+    r_cloud_weather: "cloud weather",
+    r_low_value_unit: "service unit",
+    r_test_name: "looks like a test",
+    r_tiny: "almost empty",
+    coverage: "Checked for references",
+    not_checked: "Not visible here: YAML templates and YAML helpers, Node-RED, AppDaemon, external tools (Grafana, InfluxDB). Check them yourself before deleting “not used” statistics.",
+    src_energy: "energy",
+    src_dashboards: "dashboards",
+    src_automations: "automations",
+    src_scripts: "scripts",
+    src_scenes: "scenes",
+    src_groups: "groups",
+    src_persons: "persons",
+    src_helpers: "helpers",
+    not_scanned: "not scanned",
+    scan_errors: "Some sources could not be read",
+    all_reasons: "All",
+    selected: "Selected",
+    select_shown: "Select shown",
+    clear_selection: "Clear",
+    copy_list: "Copy list",
+    exclude_yaml: "YAML for recorder exclude",
+    copied: "Copied",
+    used_by: "Used by",
+    yaml_note: "Add to configuration.yaml and restart: these entities stop being recorded, including their long-term statistics. Entities that no longer exist are left out.",
+    yaml_empty: "None of the selected statistics belongs to a live entity, so there is nothing to exclude.",
+    delete_later: "Deletion arrives in the next phase (with a database backup and small batches). For now: review, select and save the list.",
+    no_usage: "Usage information is not available.",
   },
   ru: {
     title: "Database Cleaner",
@@ -283,6 +331,54 @@ const I18N = {
     d: "д",
     mib: "МиБ",
     commit_note: "Recorder пишет пачками раз в {s} с, поэтому последние секунды ещё не видны.",
+    tab_candidates: "Кандидаты",
+    v_safe: "Можно удалить",
+    v_unused: "Нигде не используются",
+    v_review: "Проверить",
+    v_used: "Используются",
+    v_protected: "Энергия (защищено)",
+    v_hint_safe: "сущности нет, она отключена, исключена или без состояний — и ничто на неё не ссылается",
+    v_hint_unused: "сенсор жив, но его не использует ни дашборд, ни автоматизация, ни скрипт, ни хелпер",
+    v_hint_review: "статистика остановилась, YAML-сущность без записи в реестре или внешняя статистика",
+    v_hint_used: "есть ссылка из дашборда, автоматизации, скрипта, сцены, группы, человека или хелпера",
+    v_hint_protected: "используется панелью «Энергия» — к удалению не предлагается никогда",
+    r_orphan: "сущности нет",
+    r_disabled: "отключена",
+    r_excluded: "исключена",
+    r_no_states: "нет состояний",
+    r_stopped: "остановлена",
+    r_no_registry: "не в реестре",
+    r_external: "внешняя",
+    r_diagnostic: "диагностическая",
+    r_derived: "производная (хелпер)",
+    r_cloud_weather: "облачная погода",
+    r_low_value_unit: "служебная единица",
+    r_test_name: "похоже на тест",
+    r_tiny: "почти пустая",
+    coverage: "Где искали ссылки",
+    not_checked: "Отсюда не видно: шаблоны и хелперы в YAML, Node-RED, AppDaemon, внешние системы (Grafana, InfluxDB). Проверьте их сами, прежде чем удалять «неиспользуемые».",
+    src_energy: "энергия",
+    src_dashboards: "дашборды",
+    src_automations: "автоматизации",
+    src_scripts: "скрипты",
+    src_scenes: "сцены",
+    src_groups: "группы",
+    src_persons: "люди",
+    src_helpers: "хелперы",
+    not_scanned: "не проверялось",
+    scan_errors: "Часть источников прочитать не удалось",
+    all_reasons: "Все",
+    selected: "Выбрано",
+    select_shown: "Выбрать показанные",
+    clear_selection: "Снять выбор",
+    copy_list: "Скопировать список",
+    exclude_yaml: "YAML для recorder exclude",
+    copied: "Скопировано",
+    used_by: "Где используется",
+    yaml_note: "Добавьте в configuration.yaml и перезапустите HA: эти сущности перестанут записываться, включая долговременную статистику. Сущности, которых уже нет, сюда не попадают.",
+    yaml_empty: "Среди выбранных нет живых сущностей — исключать нечего.",
+    delete_later: "Удаление появится в следующей фазе (с бэкапом базы и порциями). Пока можно просмотреть, отметить и сохранить список.",
+    no_usage: "Нет данных об использовании.",
   },
 };
 
@@ -306,6 +402,27 @@ const CATEGORY_COLOR = {
   excluded: "#42a5f5",
   external: "#26a69a",
 };
+const VERDICT_ORDER = ["safe", "unused", "review", "used", "protected"];
+const VERDICT_COLOR = {
+  safe: "var(--error-color, #db4437)",
+  unused: "#7e57c2",
+  review: "#ffb300",
+  used: "var(--success-color, #43a047)",
+  protected: "#fdd835",
+};
+const VERDICT_ICON = { safe: "🗑️", unused: "💤", review: "🔍", used: "✅", protected: "⚡" };
+const REF_ICON = {
+  energy: "⚡",
+  dashboard: "📊",
+  automation: "🤖",
+  script: "📜",
+  scene: "🎬",
+  group: "👥",
+  person: "🧑",
+  helper: "🧩",
+};
+// Entities that still exist and are recorded: excluding them in YAML makes sense.
+const LIVE_CATEGORIES = new Set(["healthy", "stopped", "no_registry", "no_states"]);
 const GROUP_COLOR = {
   lts: "var(--primary-color, #03a9f4)",
   states: "#66bb6a",
@@ -335,6 +452,7 @@ class DatabaseCleanerPanel extends HTMLElement {
       errors: {},
       lts: { period: "all", groupBy: "statistic", category: null, diagnostic: false, search: "", limit: 0, sort: "rows" },
       st: { window: null, groupBy: "entity", limit: 0, sort: "rows" },
+      cand: { verdict: "safe", reason: null, search: "", limit: 0, selected: new Set(), yaml: false, toast: "" },
     };
     this._started = false;
     this.shadowRoot.addEventListener("click", (e) => this._onClick(e));
@@ -411,6 +529,7 @@ class DatabaseCleanerPanel extends HTMLElement {
         if (force || (!s.overview && !s.loading.overview)) this._load("overview", "overview", { refresh: force });
         break;
       case "statistics":
+      case "candidates":
         if (force || (!s.statistics && !s.loading.statistics))
           this._load("statistics", "statistics", { refresh: force });
         break;
@@ -481,12 +600,81 @@ class DatabaseCleanerPanel extends HTMLElement {
       case "check":
         this._load("check", "quick_check");
         break;
+      case "verdict":
+        s.cand.verdict = value;
+        s.cand.reason = null;
+        s.cand.limit = 0;
+        this._renderContent();
+        break;
+      case "reason":
+        s.cand.reason = s.cand.reason === value ? null : value;
+        s.cand.limit = 0;
+        this._renderContent();
+        break;
+      case "more-cand":
+        s.cand.limit += this._topN();
+        this._renderContent();
+        break;
+      case "select-shown":
+        for (const i of this._candItems()) s.cand.selected.add(i.statistic_id);
+        this._renderContent();
+        break;
+      case "clear-selection":
+        s.cand.selected.clear();
+        s.cand.yaml = false;
+        this._renderContent();
+        break;
+      case "copy-list":
+        this._copy([...s.cand.selected].sort().join("\n"));
+        break;
+      case "toggle-yaml":
+        s.cand.yaml = !s.cand.yaml;
+        this._renderContent();
+        break;
+      case "copy-yaml":
+        this._copy(this._excludeYaml().text);
+        break;
     }
+  }
+
+  async _copy(text) {
+    let ok = false;
+    try {
+      // Not available on plain-http (non-secure) HA URLs: fall back to a hidden textarea.
+      await navigator.clipboard.writeText(text);
+      ok = true;
+    } catch (_err) {
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      ta.style.position = "fixed";
+      ta.style.opacity = "0";
+      this.shadowRoot.appendChild(ta);
+      ta.select();
+      try {
+        ok = document.execCommand("copy");
+      } catch (_e) {
+        ok = false;
+      }
+      ta.remove();
+    }
+    this._s.cand.toast = ok ? `✅ ${this.t("copied")}` : "⚠️";
+    this._renderContent();
+    clearTimeout(this._toastTimer);
+    this._toastTimer = setTimeout(() => {
+      this._s.cand.toast = "";
+      this._renderContent();
+    }, 2000);
   }
 
   _onChange(e) {
     const el = e.target;
     const s = this._s;
+    if (el.dataset.field === "cand-select") {
+      if (el.checked) s.cand.selected.add(el.value);
+      else s.cand.selected.delete(el.value);
+      this._renderContent();
+      return;
+    }
     if (el.dataset.field === "lts-period") s.lts.period = el.value;
     else if (el.dataset.field === "lts-group") s.lts.groupBy = el.value;
     else if (el.dataset.field === "st-group") s.st.groupBy = el.value;
@@ -497,13 +685,15 @@ class DatabaseCleanerPanel extends HTMLElement {
   }
 
   _onInput(e) {
-    if (e.target.dataset.field !== "lts-search") return;
-    this._s.lts.search = e.target.value;
-    this._s.lts.limit = 0;
+    const field = e.target.dataset.field;
+    if (field !== "lts-search" && field !== "cand-search") return;
+    const target = field === "lts-search" ? this._s.lts : this._s.cand;
+    target.search = e.target.value;
+    target.limit = 0;
     clearTimeout(this._searchTimer);
     this._searchTimer = setTimeout(() => {
       this._renderContent();
-      const input = this.shadowRoot.querySelector('[data-field="lts-search"]');
+      const input = this.shadowRoot.querySelector(`[data-field="${field}"]`);
       if (input) {
         input.focus();
         input.setSelectionRange(input.value.length, input.value.length);
@@ -571,7 +761,7 @@ class DatabaseCleanerPanel extends HTMLElement {
   _render() {
     if (!this._hass) return;
     const s = this._s;
-    const tabs = ["overview", "statistics", "states", "health"];
+    const tabs = ["overview", "candidates", "statistics", "states", "health"];
     const dbPath = s.info?.db_path ? ` · ${esc(s.info.db_path)}` : "";
     this.shadowRoot.innerHTML = `
       <style>${STYLE}</style>
@@ -604,6 +794,7 @@ class DatabaseCleanerPanel extends HTMLElement {
     else
       html = {
         overview: () => this._overview(),
+        candidates: () => this._candidates(),
         statistics: () => this._statistics(),
         states: () => this._states(),
         health: () => this._health(),
@@ -742,6 +933,190 @@ class DatabaseCleanerPanel extends HTMLElement {
           <tbody>${tableHtml}</tbody></table></div></div>`;
   }
 
+  // ---------------------------------------------------------------- candidates
+  _candItems() {
+    const res = this._s.statistics;
+    const f = this._s.cand;
+    const q = f.search.trim().toLowerCase();
+    return res.items.filter(
+      (i) =>
+        i.verdict === f.verdict &&
+        (!f.reason || i.reasons.includes(f.reason)) &&
+        (!q ||
+          [i.statistic_id, i.name, i.device, i.integration, i.area]
+            .filter(Boolean)
+            .some((v) => String(v).toLowerCase().includes(q)))
+    );
+  }
+
+  _refsBadge(refs) {
+    if (!refs?.length) return "";
+    const counts = {};
+    for (const r of refs) {
+      const kind = r.split(":", 1)[0];
+      counts[kind] = (counts[kind] || 0) + 1;
+    }
+    const label = Object.entries(counts)
+      .map(([k, n]) => `${REF_ICON[k] || "🔗"}${n > 1 ? n : ""}`)
+      .join(" ");
+    const title = refs.map((r) => r.replace(":", ": ")).join("\n");
+    return `<span class="refs" title="${esc(title)}">${label}</span>`;
+  }
+
+  _excludeYaml() {
+    const res = this._s.statistics;
+    const byId = new Map(res.items.map((i) => [i.statistic_id, i]));
+    const ids = [...this._s.cand.selected]
+      .map((sid) => byId.get(sid))
+      .filter((i) => i && i.source === "recorder" && LIVE_CATEGORIES.has(i.category) && i.verdict !== "protected")
+      .map((i) => i.statistic_id)
+      .sort();
+    const text = ids.length
+      ? `recorder:\n  exclude:\n    entities:\n${ids.map((sid) => `      - ${sid}`).join("\n")}\n`
+      : "";
+    return { ids, text };
+  }
+
+  _candidates() {
+    const s = this._s;
+    if (s.errors.statistics) return this._error(s.errors.statistics);
+    if (!s.statistics) return this._spinner("statistics", this.t("lts_scan_note"));
+    const res = s.statistics;
+    if (!res.cleanup) return `<div class="card muted">${this.t("no_usage")}</div>`;
+    const f = s.cand;
+    const rb = res.row_bytes;
+
+    // coverage
+    const src = res.cleanup.sources || {};
+    const srcKeys = ["energy", "dashboards", "automations", "scripts", "scenes", "groups", "persons", "helpers"];
+    const coverage = srcKeys
+      .map((k) => {
+        const v = src[k];
+        return `<span class="src ${v == null ? "off" : ""}">${v == null ? "—" : "✓"} ${this.t(`src_${k}`)}${
+          v == null ? ` <span class="muted">(${this.t("not_scanned")})</span>` : ` <b>${this.n(v)}</b>`
+        }</span>`;
+      })
+      .join("");
+    const errors = (src.errors || []).length
+      ? `<div class="note warn">⚠️ ${this.t("scan_errors")}: ${esc(src.errors.join("; "))}</div>`
+      : "";
+
+    // verdict cards
+    const verdicts = Object.fromEntries(res.cleanup.verdicts.map((v) => [v.key, v]));
+    const cards = VERDICT_ORDER.map((k) => {
+      const v = verdicts[k] || { count: 0, rows: 0, bytes: 0 };
+      return `<button class="card cat ${f.verdict === k ? "selected" : ""} ${v.count ? "" : "empty"}"
+          data-action="verdict" data-value="${k}" title="${esc(this.t(`v_hint_${k}`))}">
+        <div class="cat-head"><i class="dot" style="background:${VERDICT_COLOR[k]}"></i>${VERDICT_ICON[k]} ${this.t(`v_${k}`)}</div>
+        <div class="cat-value">${this.n(v.count)}</div>
+        <div class="kpi-sub">${this.n(v.rows)} · ≈ ${this.size(v.bytes)}</div>
+      </button>`;
+    }).join("");
+
+    // reasons present in the current verdict
+    const inVerdict = res.items.filter((i) => i.verdict === f.verdict);
+    const reasonCounts = new Map();
+    for (const i of inVerdict)
+      for (const r of i.reasons) {
+        const agg = reasonCounts.get(r) || { count: 0, rows: 0 };
+        agg.count += 1;
+        agg.rows += i.rows;
+        reasonCounts.set(r, agg);
+      }
+    const reasonChips = [...reasonCounts.entries()]
+      .sort((a, b) => b[1].rows - a[1].rows)
+      .map(
+        ([r, a]) =>
+          `<button class="pill ${f.reason === r ? "active" : ""}" data-action="reason" data-value="${r}">${this.t(
+            `r_${r}`
+          )} <span class="muted">${this.n(a.count)} · ${this.size(a.rows * rb)}</span></button>`
+      )
+      .join("");
+
+    const items = this._candItems().sort((a, b) => b.rows - a.rows);
+    const shownRows = items.reduce((a, i) => a + i.rows, 0);
+    const limit = this._topN() + f.limit;
+    const max = Math.max(1, ...items.slice(0, limit).map((i) => i.rows));
+    const byId = new Map(res.items.map((i) => [i.statistic_id, i]));
+    const selRows = [...f.selected].reduce((a, sid) => a + (byId.get(sid)?.rows || 0), 0);
+    const selectable = f.verdict !== "protected";
+
+    const rows = items
+      .slice(0, limit)
+      .map((i) => {
+        const sub = [i.name && i.name !== i.statistic_id ? i.name : null, i.device, i.integration, i.unit]
+          .filter(Boolean)
+          .map(esc)
+          .join(" · ");
+        const reasons = i.reasons
+          .map((r) => `<span class="tag">${this.t(`r_${r}`)}</span>`)
+          .join(" ");
+        return `<tr>
+          ${
+            selectable
+              ? `<td class="check-cell"><input type="checkbox" data-field="cand-select" value="${esc(i.statistic_id)}" ${
+                  f.selected.has(i.statistic_id) ? "checked" : ""
+                }></td>`
+              : ""
+          }
+          <td class="name"><div class="eid">${esc(i.statistic_id)} ${this._refsBadge(i.refs)}</div>
+            <div class="muted small">${sub}</div><div class="tags">${reasons}</div></td>
+          <td class="num barcell"><div class="bar"><span style="width:${(100 * i.rows) / max}%"></span></div>${this.n(i.rows)}</td>
+          <td class="num hide-narrow">${this.mib(i.rows * rb, 2)}</td>
+          <td class="num">${this.date(i.last_ts)}</td>
+        </tr>`;
+      })
+      .join("");
+
+    const selectionBar = selectable
+      ? `<div class="selbar">
+          <span><b>${this.t("selected")}: ${this.n(f.selected.size)}</b> <span class="muted">· ≈ ${this.size(selRows * rb)}</span></span>
+          <button class="btn small" data-action="select-shown">${this.t("select_shown")}</button>
+          <button class="btn small" data-action="clear-selection" ${f.selected.size ? "" : "disabled"}>${this.t(
+          "clear_selection"
+        )}</button>
+          <button class="btn small" data-action="copy-list" ${f.selected.size ? "" : "disabled"}>${this.t("copy_list")}</button>
+          <button class="btn small" data-action="toggle-yaml" ${f.selected.size ? "" : "disabled"}>${this.t(
+          "exclude_yaml"
+        )}</button>
+          <span class="toast">${esc(f.toast)}</span>
+        </div>`
+      : "";
+
+    let yaml = "";
+    if (f.yaml && f.selected.size) {
+      const y = this._excludeYaml();
+      yaml = y.ids.length
+        ? `<div class="yaml"><div class="muted small">${this.t("yaml_note")}</div>
+            <pre>${esc(y.text)}</pre><button class="btn small" data-action="copy-yaml">${this.t("copy_list")} (YAML)</button></div>`
+        : `<div class="note">${this.t("yaml_empty")}</div>`;
+    }
+
+    return `
+      <div class="card"><h2>${this.t("coverage")}</h2><div class="sources">${coverage}</div>
+        <div class="note">ℹ️ ${this.t("not_checked")}</div>${errors}</div>
+      <div class="cats">${cards}</div>
+      <div class="card">
+        <div class="note">${VERDICT_ICON[f.verdict]} ${this.t(`v_hint_${f.verdict}`)}</div>
+        ${reasonChips ? `<div class="controls">${reasonChips}</div>` : ""}
+        <div class="controls">
+          <input type="search" data-field="cand-search" placeholder="${this.t("search")}" value="${esc(f.search)}">
+          <span class="muted small grow">${this.t("statistics_n")}: ${this.n(items.length)} · ${this.t("rows")}: ${this.n(
+      shownRows
+    )} · ≈ ${this.size(shownRows * rb)}</span>${this._meta(res)}
+        </div>
+        ${selectionBar}${yaml}
+        <div class="table-wrap"><table>
+          <thead><tr>${selectable ? "<th></th>" : ""}<th>${this.t("g_statistic")}</th><th class="num">${this.t(
+      "rows"
+    )}</th>
+            <th class="num hide-narrow">${this.t("approx_mib")}</th><th class="num">${this.t("last")}</th></tr></thead>
+          <tbody>${rows}</tbody></table></div>
+        ${this._more(items.length, limit, "more-cand")}
+        <div class="note">🔒 ${this.t("delete_later")}</div>
+      </div>`;
+  }
+
   // ---------------------------------------------------------------- statistics (LTS)
   _ltsRows(item) {
     const p = this._s.lts.period;
@@ -848,7 +1223,9 @@ class DatabaseCleanerPanel extends HTMLElement {
           .map(esc)
           .join(" · ");
         return `<tr>
-          <td class="name"><div class="eid">${esc(i.statistic_id)}${i.diagnostic ? ' <span class="tag">diag</span>' : ""}</div>
+          <td class="name"><div class="eid">${esc(i.statistic_id)}${i.diagnostic ? ' <span class="tag">diag</span>' : ""} ${this._refsBadge(
+          i.refs
+        )}</div>
             <div class="muted small">${sub}</div></td>
           <td><span class="chip" style="--c:${CATEGORY_COLOR[i.category]}" title="${esc(
           this.t(`cat_hint_${i.category}`)
@@ -1259,6 +1636,19 @@ const STYLE = `
     border-radius: 50%; animation: spin 0.9s linear infinite; }
   @keyframes spin { to { transform: rotate(360deg); } }
   .error { color: var(--error-color, #db4437); }
+  .sources { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 14px; }
+  .src.off { color: var(--dc-muted); }
+  .tags { margin-top: 4px; display: flex; flex-wrap: wrap; gap: 4px; }
+  .refs { font-size: 12px; margin-left: 6px; cursor: help; white-space: nowrap; }
+  .check-cell { width: 28px; }
+  .check-cell input { width: 16px; height: 16px; accent-color: var(--dc-accent); cursor: pointer; }
+  .selbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 10px 12px; margin-bottom: 12px;
+    border: 1px dashed var(--dc-border); border-radius: 10px; }
+  .btn.small { padding: 4px 12px; font-size: 13px; }
+  .toast { font-size: 13px; color: var(--success-color, #43a047); }
+  .yaml { margin-bottom: 12px; }
+  .yaml pre { background: rgba(127,127,127,0.10); border: 1px solid var(--dc-border); border-radius: 8px; padding: 10px 12px;
+    max-height: 320px; overflow: auto; }
   @media (max-width: 700px) {
     main { padding: 12px; gap: 12px; }
     .hide-narrow { display: none; }

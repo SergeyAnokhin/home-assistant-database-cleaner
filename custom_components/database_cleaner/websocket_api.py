@@ -107,6 +107,15 @@ async def ws_overview(hass: HomeAssistant, connection: websocket_api.ActiveConne
 @websocket_api.async_response
 async def ws_statistics(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
     ctx = async_build_context(hass, get_instance(hass).entity_filter)
+    loaded = _loaded(hass)
+    if loaded is not None:
+        data = loaded[0]
+        try:
+            ids = await hass.async_add_executor_job(data.analyzer.statistic_ids)
+        except sqlite3.Error as err:
+            connection.send_error(msg["id"], "db_error", str(err))
+            return
+        ctx.usage, ctx.usage_sources = await data.usage.async_get(hass, ids, refresh=msg["refresh"])
     await _run(
         hass,
         connection,

@@ -101,6 +101,11 @@ class Analyzer:
             raw = c.value
         return self._stamp(lts.enrich(raw, ctx, row_bytes=self._row_bytes()), c, hit)
 
+    def statistic_ids(self) -> list[str]:
+        """All statistic_ids (cheap: statistics_meta only)."""
+        with self._conn() as conn:
+            return [r[0] for r in conn.execute("SELECT statistic_id FROM statistics_meta")]
+
     def statistics_rows_by_id(self) -> dict[str, int] | None:
         """LTS rows per statistic_id from the cache only (never triggers the scan)."""
         raw = self._stats.value

@@ -51,6 +51,19 @@ def test_recorder_exclude_matches_plan(setup):
     assert (excluded["count"], excluded["rows"]) == (169, 139_676)
 
 
+def test_cleanup_verdicts_on_copy(setup):
+    ctx = load_context(REAL_DIR / ".storage", REAL_DIR / "recorder_exclude.json", usage=True)
+    res = setup.statistics(ctx, [30, 365])
+    verdicts = {v["key"]: (v["count"], v["rows"]) for v in res["cleanup"]["verdicts"]}
+    # 52 statistics feed the Energy dashboard: they must never be offered for deletion
+    assert verdicts["protected"][0] == 52
+    by_id = {i["statistic_id"]: i for i in res["items"]}
+    assert by_id["sensor.gazpar_clicks_m3"]["verdict"] == "protected"
+    assert by_id["sensor.input_number_test"]["verdict"] == "review"
+    assert "test_name" in by_id["sensor.input_number_test"]["reasons"]
+    assert sum(c for c, _ in verdicts.values()) == 1739
+
+
 def test_states_top_24h(setup):
     ctx = load_context(REAL_DIR / ".storage")
     res = setup.states(ctx, 86400)

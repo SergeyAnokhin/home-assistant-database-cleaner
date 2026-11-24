@@ -34,7 +34,7 @@ def build_app(db: Path, storage: Path, exclude: Path):
         newest = conn.execute("SELECT MAX(last_updated_ts) FROM states").fetchone()[0] or 0
     # The copy is frozen in time: "now" = newest state + 1 min, so windows are meaningful.
     analyzer = Analyzer(str(db), immutable=True, clock=lambda: newest + 60)
-    ctx = load_context(storage, exclude if exclude.exists() else None)
+    ctx = load_context(storage, exclude if exclude.exists() else None, usage=True)
     recorder = {
         "keep_days": 7,
         "commit_interval": 30,
