@@ -1,7 +1,8 @@
-"""Database Cleaner: analyse (and later clean) the Home Assistant recorder database.
+"""Database Cleaner: analyse and clean the Home Assistant recorder database.
 
-Phase 1 is strictly read-only: the engine opens its own ``mode=ro`` SQLite
-connection and never writes to the recorder database.
+Analytics open their own ``mode=ro`` SQLite connection. Every change to the
+database (deleting statistics, VACUUM, restoring from the undo archive) goes
+through the recorder's own task queue — see ``maintenance.py``.
 """
 
 from __future__ import annotations
@@ -34,6 +35,7 @@ from .const import (
 from .coordinator import DatabaseCleanerCoordinator
 from .engine import Analyzer
 from .engine.db import sqlite_path_from_url
+from .jobs import JobManager
 from .usage import UsageCache
 from .websocket_api import async_register_websocket_commands
 
@@ -49,6 +51,7 @@ _STATIC_REGISTERED = f"{DOMAIN}_static_registered"
 class DatabaseCleanerData:
     analyzer: Analyzer
     coordinator: DatabaseCleanerCoordinator
+    jobs: JobManager
     usage: UsageCache = field(default_factory=UsageCache)
 
 
@@ -76,7 +79,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: DatabaseCleanerConfigEnt
     analyzer = Analyzer(db_path, statistics_ttl_s=float(options[CONF_CACHE_HOURS]) * 3600)
     coordinator = DatabaseCleanerCoordinator(hass, entry, analyzer)
     await coordinator.async_config_entry_first_refresh()
-    entry.runtime_data = DatabaseCleanerData(analyzer=analyzer, coordinator=coordinator)
+    jobs = JobManager(hass)
+    await jobs.async_load()
+    entry.runtime_data = DatabaseCleanerData(analyzer=analyzer, coordinator=coordinator, jobs=jobs)
 
     await _async_register_panel(hass)
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
@@ -85,6 +90,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: DatabaseCleanerConfigEnt
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: DatabaseCleanerConfigEntry) -> bool:
+    await entry.runtime_data.jobs.async_shutdown()
     unloaded = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
     if unloaded:
         frontend.async_remove_panel(hass, PANEL_URL_PATH, warn_if_unknown=False)

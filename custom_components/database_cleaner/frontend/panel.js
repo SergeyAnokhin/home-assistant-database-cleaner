@@ -6,7 +6,7 @@
  * panel follows dark / light mode automatically.
  */
 
-const VERSION = "0.1.0";
+const VERSION = "0.2.0";
 const DOMAIN = "database_cleaner";
 
 const ICON = {
@@ -197,6 +197,71 @@ const I18N = {
     yaml_empty: "None of the selected statistics belongs to a live entity, so there is nothing to exclude.",
     delete_later: "Deletion arrives in the next phase (with a database backup and small batches). For now: review, select and save the list.",
     no_usage: "Usage information is not available.",
+    tab_maintenance: "Maintenance",
+    delete_selected: "Delete selected…",
+    dlg_delete_title: "Delete long-term statistics",
+    dlg_summary: "{n} statistics · {rows} rows · ≈ {size}",
+    dlg_live_warn: "{n} of them belong to live sensors: their statistics will start growing again. Add them to recorder exclude (YAML button) to stop that.",
+    dlg_backup: "A verified database backup is made first (unless one is younger than {h} h), and the rows are saved to an undo archive.",
+    dlg_repack: "Compact the database afterwards (VACUUM)",
+    dlg_repack_note: "Frees the disk space. The recorder pauses writing for the duration (events wait in memory).",
+    dlg_type: "Type {word} to confirm",
+    confirm_word: "DELETE",
+    dlg_start: "Start",
+    cancel: "Cancel",
+    close: "Close",
+    preflight: "Checks before start",
+    pf_ha_running: "Home Assistant is running",
+    pf_no_migration: "no database migration in progress",
+    pf_schema: "recorder schema tested with this version",
+    pf_backlog: "recorder queue is normal",
+    pf_backup_space: "free space for the backup",
+    pf_repack_space: "free space for VACUUM",
+    pf_integrity: "database integrity (quick_check)",
+    job_running: "Job in progress",
+    step_preflight: "Checks",
+    step_backup: "Backup",
+    step_delete: "Deleting",
+    step_repack: "Compacting (VACUUM)",
+    step_restore: "Restoring",
+    kind_backup: "Backup",
+    kind_delete: "Delete statistics",
+    kind_repack: "Compact database",
+    kind_restore: "Restore",
+    st_done: "done",
+    st_failed: "failed",
+    st_cancelled: "cancelled",
+    st_interrupted: "interrupted",
+    st_running: "running",
+    st_pending: "starting",
+    cancel_job: "Cancel after current batch",
+    actions: "Actions",
+    make_backup: "Make a backup",
+    repack_now: "Compact database (VACUUM)…",
+    backups: "Database backups",
+    no_backups: "No backups yet.",
+    verified: "verified",
+    delete: "Delete",
+    confirm_delete_backup: "Delete backup {name}? This cannot be undone.",
+    restore_full: "Full restore of a backup file needs Home Assistant Core to be stopped: ha core stop → rename home-assistant_v2.db (and -wal, -shm) → copy the backup in its place as home-assistant_v2.db → ha core start.",
+    archives: "Undo archives",
+    no_archives: "No undo archives.",
+    restore: "Restore",
+    confirm_restore: "Restore {n} statistics from {name} into the database? Existing rows with the same hour are overwritten.",
+    incomplete: "incomplete",
+    journal: "Journal",
+    no_jobs: "No jobs yet.",
+    duration: "duration",
+    result_delete: "{n} statistics, {rows} rows deleted",
+    result_size: "{before} → {after}",
+    result_restore: "{n} statistics restored",
+    folder: "Folder",
+    fresh_backup: "Fresh backup",
+    none: "none",
+    settings_hint: "Change folder, retention and batch size in the integration options.",
+    repack_title: "Compact the database (VACUUM)",
+    repack_text: "Rewrites the database file without free pages. Runs inside the recorder via recorder.purge (repack), which also removes states older than purge_keep_days, like the nightly purge.",
+    started: "Started — progress is on the Maintenance tab.",
   },
   ru: {
     title: "Database Cleaner",
@@ -379,6 +444,71 @@ const I18N = {
     yaml_empty: "Среди выбранных нет живых сущностей — исключать нечего.",
     delete_later: "Удаление появится в следующей фазе (с бэкапом базы и порциями). Пока можно просмотреть, отметить и сохранить список.",
     no_usage: "Нет данных об использовании.",
+    tab_maintenance: "Обслуживание",
+    delete_selected: "Удалить выбранное…",
+    dlg_delete_title: "Удаление долговременной статистики",
+    dlg_summary: "{n} статистик · {rows} строк · ≈ {size}",
+    dlg_live_warn: "{n} из них — живые сенсоры: их статистика начнёт копиться заново. Чтобы этого не было, добавьте их в recorder exclude (кнопка YAML).",
+    dlg_backup: "Сначала делается проверенный бэкап базы (если нет свежее {h} ч), а удаляемые строки сохраняются в архив отмены.",
+    dlg_repack: "После удаления сжать базу (VACUUM)",
+    dlg_repack_note: "Освобождает место на диске. На это время recorder приостанавливает запись (события ждут в памяти).",
+    dlg_type: "Для подтверждения введите {word}",
+    confirm_word: "УДАЛИТЬ",
+    dlg_start: "Запустить",
+    cancel: "Отмена",
+    close: "Закрыть",
+    preflight: "Проверки перед запуском",
+    pf_ha_running: "Home Assistant работает",
+    pf_no_migration: "миграция базы не идёт",
+    pf_schema: "схема recorder проверена с этой версией",
+    pf_backlog: "очередь recorder в норме",
+    pf_backup_space: "место для бэкапа",
+    pf_repack_space: "место для VACUUM",
+    pf_integrity: "целостность базы (quick_check)",
+    job_running: "Выполняется задание",
+    step_preflight: "Проверки",
+    step_backup: "Бэкап",
+    step_delete: "Удаление",
+    step_repack: "Сжатие (VACUUM)",
+    step_restore: "Восстановление",
+    kind_backup: "Бэкап",
+    kind_delete: "Удаление статистики",
+    kind_repack: "Сжатие базы",
+    kind_restore: "Восстановление",
+    st_done: "готово",
+    st_failed: "ошибка",
+    st_cancelled: "отменено",
+    st_interrupted: "прервано",
+    st_running: "выполняется",
+    st_pending: "запуск",
+    cancel_job: "Отменить после текущей порции",
+    actions: "Действия",
+    make_backup: "Сделать бэкап",
+    repack_now: "Сжать базу (VACUUM)…",
+    backups: "Бэкапы базы",
+    no_backups: "Бэкапов пока нет.",
+    verified: "проверен",
+    delete: "Удалить",
+    confirm_delete_backup: "Удалить бэкап {name}? Это необратимо.",
+    restore_full: "Полное восстановление файла требует остановить Core: ha core stop → переименовать home-assistant_v2.db (и -wal, -shm) → положить бэкап на его место под именем home-assistant_v2.db → ha core start.",
+    archives: "Архивы отмены",
+    no_archives: "Архивов отмены нет.",
+    restore: "Восстановить",
+    confirm_restore: "Вернуть {n} статистик из {name} в базу? Строки за те же часы будут перезаписаны.",
+    incomplete: "неполный",
+    journal: "Журнал",
+    no_jobs: "Заданий пока не было.",
+    duration: "длительность",
+    result_delete: "удалено {n} статистик, {rows} строк",
+    result_size: "{before} → {after}",
+    result_restore: "восстановлено {n} статистик",
+    folder: "Папка",
+    fresh_backup: "Свежий бэкап",
+    none: "нет",
+    settings_hint: "Папку, число бэкапов и размер порции можно изменить в настройках интеграции.",
+    repack_title: "Сжатие базы (VACUUM)",
+    repack_text: "Переписывает файл базы без пустых страниц. Выполняется внутри recorder через recorder.purge (repack); заодно удаляются состояния старше purge_keep_days, как при ночной очистке.",
+    started: "Запущено — ход выполнения на вкладке «Обслуживание».",
   },
 };
 
@@ -453,6 +583,10 @@ class DatabaseCleanerPanel extends HTMLElement {
       lts: { period: "all", groupBy: "statistic", category: null, diagnostic: false, search: "", limit: 0, sort: "rows" },
       st: { window: null, groupBy: "entity", limit: 0, sort: "rows" },
       cand: { verdict: "safe", reason: null, search: "", limit: 0, selected: new Set(), yaml: false, toast: "" },
+      maintenance: null,
+      jobs: null,
+      dialog: null,
+      notice: "",
     };
     this._started = false;
     this.shadowRoot.addEventListener("click", (e) => this._onClick(e));
@@ -520,6 +654,83 @@ class DatabaseCleanerPanel extends HTMLElement {
     const windows = this._s.info?.options?.state_windows || [1, 24, 168];
     this._s.st.window = windows.includes(24) ? 24 : windows[0];
     this._ensureTab();
+    try {
+      this._s.jobs = await this._ws("job/status");
+      if (this._s.jobs.current) this._startPolling();
+    } catch (_err) {
+      /* older backend without jobs */
+    }
+  }
+
+  disconnectedCallback() {
+    clearInterval(this._poll);
+    this._poll = null;
+  }
+
+  _startPolling() {
+    if (this._poll) return;
+    this._poll = setInterval(async () => {
+      try {
+        const st = await this._ws("job/status");
+        this._s.jobs = st;
+        if (!st.current) {
+          clearInterval(this._poll);
+          this._poll = null;
+          this._afterJob();
+        }
+      } catch (_err) {
+        /* keep polling */
+      }
+      this._render();
+    }, 1500);
+  }
+
+  _afterJob() {
+    // data changed on the server: reload lazily
+    const s = this._s;
+    s.statistics = null;
+    s.overview = null;
+    s.health = null;
+    s.cand.selected.clear();
+    s.cand.yaml = false;
+    this._load("maintenance", "maintenance");
+  }
+
+  async _preflight() {
+    const d = this._s.dialog;
+    if (!d) return;
+    d.pre = null;
+    d.error = "";
+    this._renderContent();
+    try {
+      const pre = await this._ws("preflight", { kind: d.kind, repack: d.kind === "delete" ? d.repack : false });
+      if (this._s.dialog === d) d.pre = pre;
+    } catch (err) {
+      if (this._s.dialog === d) d.error = err?.message || String(err);
+    }
+    this._renderContent();
+  }
+
+  async _startJob(payload) {
+    try {
+      await this._ws("job/start", payload);
+    } catch (err) {
+      const msg = err?.message || String(err);
+      if (this._s.dialog) {
+        this._s.dialog.error = msg;
+        this._renderContent();
+      } else {
+        this._s.notice = `⚠️ ${msg}`;
+        this._render();
+      }
+      return false;
+    }
+    this._s.dialog = null;
+    this._s.notice = `🚀 ${this.t("started")}`;
+    this._s.jobs = await this._ws("job/status");
+    this._startPolling();
+    this._render();
+    return true;
   }
 
   _ensureTab(force = false) {
@@ -538,6 +749,13 @@ class DatabaseCleanerPanel extends HTMLElement {
         break;
       case "health":
         if (force || (!s.health && !s.loading.health)) this._load("health", "health", { probe: true });
+        break;
+      case "maintenance":
+        if (force || (!s.maintenance && !s.loading.maintenance))
+          this._load("maintenance", "maintenance").then(() => {
+            if (s.maintenance?.jobs) s.jobs = s.maintenance.jobs;
+            if (s.jobs?.current) this._startPolling();
+          });
         break;
     }
   }
@@ -634,6 +852,49 @@ class DatabaseCleanerPanel extends HTMLElement {
       case "copy-yaml":
         this._copy(this._excludeYaml().text);
         break;
+      case "open-delete":
+        s.dialog = { kind: "delete", ids: [...s.cand.selected].sort(), repack: true, pre: null, text: "", error: "" };
+        this._preflight();
+        break;
+      case "open-repack":
+        s.dialog = { kind: "repack", pre: null, text: "", error: "" };
+        this._preflight();
+        break;
+      case "dlg-close":
+        s.dialog = null;
+        this._renderContent();
+        break;
+      case "dlg-start": {
+        const d = s.dialog;
+        if (!d) break;
+        if (d.kind === "delete")
+          this._startJob({ kind: "delete", statistic_ids: d.ids, repack: d.repack, confirm: true });
+        else this._startJob({ kind: "repack", confirm: true });
+        break;
+      }
+      case "backup-now":
+        this._startJob({ kind: "backup" });
+        break;
+      case "cancel-job":
+        this._ws("job/cancel");
+        break;
+      case "dismiss-notice":
+        s.notice = "";
+        this._renderContent();
+        break;
+      case "delete-backup":
+        if (window.confirm(this.t("confirm_delete_backup", { name: value })))
+          this._ws("backup/delete", { name: value, confirm: true })
+            .catch((err) => (s.notice = `⚠️ ${err?.message || err}`))
+            .finally(() => this._load("maintenance", "maintenance"));
+        break;
+      case "restore-archive": {
+        const a = (s.maintenance?.archives || []).find((x) => x.name === value);
+        const n = a ? a.statistics.length : 0;
+        if (window.confirm(this.t("confirm_restore", { n, name: value })))
+          this._startJob({ kind: "restore", archive: value, confirm: true });
+        break;
+      }
     }
   }
 
@@ -675,6 +936,11 @@ class DatabaseCleanerPanel extends HTMLElement {
       this._renderContent();
       return;
     }
+    if (el.dataset.field === "dlg-repack" && s.dialog) {
+      s.dialog.repack = el.checked;
+      this._preflight();
+      return;
+    }
     if (el.dataset.field === "lts-period") s.lts.period = el.value;
     else if (el.dataset.field === "lts-group") s.lts.groupBy = el.value;
     else if (el.dataset.field === "st-group") s.st.groupBy = el.value;
@@ -686,6 +952,13 @@ class DatabaseCleanerPanel extends HTMLElement {
 
   _onInput(e) {
     const field = e.target.dataset.field;
+    if (field === "confirm-text" && this._s.dialog) {
+      // no re-render: keep the caret, just toggle the button
+      this._s.dialog.text = e.target.value;
+      const btn = this.shadowRoot.querySelector('[data-action="dlg-start"]');
+      if (btn) btn.disabled = !this._dialogReady();
+      return;
+    }
     if (field !== "lts-search" && field !== "cand-search") return;
     const target = field === "lts-search" ? this._s.lts : this._s.cand;
     target.search = e.target.value;
@@ -761,13 +1034,14 @@ class DatabaseCleanerPanel extends HTMLElement {
   _render() {
     if (!this._hass) return;
     const s = this._s;
-    const tabs = ["overview", "candidates", "statistics", "states", "health"];
+    const tabs = ["overview", "candidates", "statistics", "states", "health", "maintenance"];
+    const running = !!s.jobs?.current;
     const dbPath = s.info?.db_path ? ` · ${esc(s.info.db_path)}` : "";
     this.shadowRoot.innerHTML = `
       <style>${STYLE}</style>
       <div class="toolbar">
         ${this._narrow ? `<button class="icon" data-action="menu" title="Menu">${svg(ICON.menu)}</button>` : ""}
-        <div class="title">${this.t("title")}<span class="sub">v${VERSION} · ${this.t("read_only")}${dbPath}</span></div>
+        <div class="title">${this.t("title")}<span class="sub">v${VERSION}${dbPath}</span></div>
         <button class="icon" data-action="refresh" title="${this.t("refresh")}">${svg(ICON.refresh)}</button>
       </div>
       <nav class="tabs">
@@ -776,7 +1050,7 @@ class DatabaseCleanerPanel extends HTMLElement {
             (tab) =>
               `<button class="tab ${s.tab === tab ? "active" : ""}" data-action="tab" data-value="${tab}">${this.t(
                 `tab_${tab}`
-              )}</button>`
+              )}${tab === "maintenance" && running ? ' <span class="pulse"></span>' : ""}</button>`
           )
           .join("")}
       </nav>
@@ -798,8 +1072,12 @@ class DatabaseCleanerPanel extends HTMLElement {
         statistics: () => this._statistics(),
         states: () => this._states(),
         health: () => this._health(),
+        maintenance: () => this._maintenance(),
       }[s.tab]();
-    main.innerHTML = html;
+    const notice = s.notice
+      ? `<div class="card notice"><span>${esc(s.notice)}</span><button class="icon small" data-action="dismiss-notice">✕</button></div>`
+      : "";
+    main.innerHTML = notice + html + (s.dialog ? this._dialog() : "");
   }
 
   _spinner(key, note = "") {
@@ -1079,6 +1357,9 @@ class DatabaseCleanerPanel extends HTMLElement {
           <button class="btn small" data-action="toggle-yaml" ${f.selected.size ? "" : "disabled"}>${this.t(
           "exclude_yaml"
         )}</button>
+          <button class="btn small danger" data-action="open-delete" ${
+            f.selected.size && !s.jobs?.current ? "" : "disabled"
+          }>🗑️ ${this.t("delete_selected")}</button>
           <span class="toast">${esc(f.toast)}</span>
         </div>`
       : "";
@@ -1113,7 +1394,168 @@ class DatabaseCleanerPanel extends HTMLElement {
             <th class="num hide-narrow">${this.t("approx_mib")}</th><th class="num">${this.t("last")}</th></tr></thead>
           <tbody>${rows}</tbody></table></div>
         ${this._more(items.length, limit, "more-cand")}
-        <div class="note">🔒 ${this.t("delete_later")}</div>
+      </div>`;
+  }
+
+  // ---------------------------------------------------------------- dialogs
+  _confirmWord() {
+    return this._s.dialog?.kind === "repack" ? "VACUUM" : this.t("confirm_word");
+  }
+
+  _dialogReady() {
+    const d = this._s.dialog;
+    return !!d && !!d.pre?.ok && d.text.trim().toUpperCase() === this._confirmWord().toUpperCase();
+  }
+
+  _checks(pre) {
+    if (!pre) return `<div class="checks">${this._spinner("preflight")}</div>`;
+    return `<ul class="checks">${pre.checks
+      .map((c) => {
+        let extra = "";
+        if (c.value && typeof c.value === "object" && "free" in c.value)
+          extra = ` <span class="muted small">(${this.size(c.value.free)} / ${this.size(c.value.required)})</span>`;
+        else if (c.value != null && typeof c.value !== "object")
+          extra = ` <span class="muted small">(${esc(c.value)})</span>`;
+        return `<li>${c.ok ? "✅" : "❌"} ${this.t(`pf_${c.key}`)}${extra}</li>`;
+      })
+      .join("")}</ul>${
+      pre.fresh_backup ? `<div class="muted small">💾 ${this.t("fresh_backup")}: ${esc(pre.fresh_backup)}</div>` : ""
+    }`;
+  }
+
+  _dialog() {
+    const d = this._s.dialog;
+    let body = "";
+    if (d.kind === "delete") {
+      const byId = new Map((this._s.statistics?.items || []).map((i) => [i.statistic_id, i]));
+      const items = d.ids.map((sid) => byId.get(sid)).filter(Boolean);
+      const rows = items.reduce((a, i) => a + i.rows, 0);
+      const rb = this._s.statistics?.row_bytes || 78;
+      const live = items.filter((i) => i.source === "recorder" && LIVE_CATEGORIES.has(i.category)).length;
+      const hours = this._s.maintenance?.settings?.max_age_hours ?? 24;
+      body = `
+        <h2>🗑️ ${this.t("dlg_delete_title")}</h2>
+        <p><b>${this.t("dlg_summary", { n: this.n(d.ids.length), rows: this.n(rows), size: this.size(rows * rb) })}</b></p>
+        ${live ? `<p class="warn-text">⚠️ ${this.t("dlg_live_warn", { n: this.n(live) })}</p>` : ""}
+        <p class="muted">💾 ${this.t("dlg_backup", { h: this.n(hours) })}</p>
+        <label class="check-line"><input type="checkbox" data-field="dlg-repack" ${d.repack ? "checked" : ""}>
+          ${this.t("dlg_repack")}</label>
+        <div class="muted small">${this.t("dlg_repack_note")}</div>`;
+    } else {
+      body = `<h2>🗜️ ${this.t("repack_title")}</h2><p class="muted">${this.t("repack_text")}</p>
+        <p class="muted">💾 ${this.t("dlg_backup", { h: this.n(this._s.maintenance?.settings?.max_age_hours ?? 24) })}</p>`;
+    }
+    return `<div class="overlay"><div class="dialog card" role="dialog" aria-modal="true">
+      ${body}
+      <h3>${this.t("preflight")}</h3>${this._checks(d.pre)}
+      ${d.error ? `<div class="error">⚠️ ${esc(d.error)}</div>` : ""}
+      <label class="confirm"><span>${this.t("dlg_type", { word: `<b>${esc(this._confirmWord())}</b>` })}</span>
+        <input type="text" data-field="confirm-text" value="${esc(d.text)}" autocomplete="off" spellcheck="false"></label>
+      <div class="dialog-actions">
+        <button class="btn" data-action="dlg-close">${this.t("cancel")}</button>
+        <button class="btn danger solid" data-action="dlg-start" ${this._dialogReady() ? "" : "disabled"}>${this.t(
+      "dlg_start"
+    )}</button>
+      </div></div></div>`;
+  }
+
+  // ---------------------------------------------------------------- maintenance
+  _jobSummary(j) {
+    const r = j.result || {};
+    if (j.status !== "done") return esc(j.error || "");
+    if (j.kind === "delete") {
+      const size = r.size_after != null ? ` · ${this.t("result_size", { before: this.size(r.size_before), after: this.size(r.size_after) })}` : "";
+      return this.t("result_delete", { n: this.n(r.deleted), rows: this.n(r.deleted_rows) }) + size;
+    }
+    if (j.kind === "repack") return this.t("result_size", { before: this.size(r.size_before), after: this.size(r.size_after) });
+    if (j.kind === "backup") return `${esc(r.backup)} · ${this.size(r.size)}`;
+    if (j.kind === "restore") return this.t("result_restore", { n: this.n(r.restored) });
+    return "";
+  }
+
+  _currentJob(job) {
+    const pct = job.total ? Math.round((100 * job.done) / job.total) : null;
+    const log = (job.log || []).slice(-6).map(esc).join("\n");
+    return `<div class="card job">
+      <div class="card-head"><h2>⏳ ${this.t("job_running")}: ${this.t(`kind_${job.kind}`)}</h2>
+        <button class="btn small" data-action="cancel-job">${this.t("cancel_job")}</button></div>
+      <div>${job.step ? this.t(`step_${job.step}`) : this.t(`st_${job.status}`)}${
+      job.total ? ` · ${this.n(job.done)} / ${this.n(job.total)}` : ""
+    }</div>
+      <div class="progress ${pct == null ? "indeterminate" : ""}"><span style="width:${pct ?? 30}%"></span></div>
+      ${log ? `<pre class="log">${log}</pre>` : ""}
+    </div>`;
+  }
+
+  _maintenance() {
+    const s = this._s;
+    if (s.errors.maintenance) return this._error(s.errors.maintenance);
+    if (!s.maintenance) return this._spinner("maintenance");
+    const m = s.maintenance;
+    const jobs = s.jobs || m.jobs || { current: null, history: [] };
+    const busy = !!jobs.current;
+
+    const actions = `<div class="card"><h2>${this.t("actions")}</h2>
+      <div class="action-row">
+        <button class="btn" data-action="backup-now" ${busy ? "disabled" : ""}>💾 ${this.t("make_backup")}</button>
+        <button class="btn" data-action="open-repack" ${busy ? "disabled" : ""}>🗜️ ${this.t("repack_now")}</button>
+      </div>
+      <div class="rows">
+        <div><span>${this.t("db_size")}</span><b>${this.size(m.db.size)}${m.db.wal_size ? ` + WAL ${this.size(m.db.wal_size)}` : ""}</b></div>
+        <div><span>${this.t("free_pages")}</span><b>${this.pct(m.db.free_pages_ratio, 1)}</b></div>
+        <div><span>${this.t("disk_free")}</span><b>${this.size(m.db.free_db_dir)}</b></div>
+        <div><span>${this.t("folder")}</span><b class="path">${esc(m.settings.backup_dir)}</b></div>
+        <div><span>${this.t("fresh_backup")}</span><b>${m.fresh_backup ? esc(m.fresh_backup) : this.t("none")}</b></div>
+      </div>
+      <div class="muted small">⚙️ ${this.t("settings_hint")}</div></div>`;
+
+    const backups = m.backups.length
+      ? `<div class="table-wrap"><table><tbody>${m.backups
+          .map(
+            (b) => `<tr><td class="name"><div class="eid">${esc(b.name)}</div>
+            <div class="muted small">${this.date(b.created_ts, true)} · ${this.size(b.size)} · ${
+              b.verified ? "✅ " + this.t("verified") : "⚠️"
+            } · schema ${esc(b.schema_version)}</div></td>
+            <td class="num"><button class="btn small" data-action="delete-backup" data-value="${esc(b.name)}" ${
+              busy ? "disabled" : ""
+            }>${this.t("delete")}</button></td></tr>`
+          )
+          .join("")}</tbody></table></div>`
+      : `<div class="muted">${this.t("no_backups")}</div>`;
+
+    const archives = m.archives.length
+      ? `<div class="table-wrap"><table><tbody>${m.archives
+          .map(
+            (a) => `<tr><td class="name"><div class="eid">${esc(a.name)}</div>
+            <div class="muted small">${this.date(a.created_ts, true)} · ${this.t("statistics_n")}: ${this.n(
+              a.statistics.length
+            )} · ${this.t("rows")}: ${this.n(a.rows)}${a.complete ? "" : ` · ⚠️ ${this.t("incomplete")}`}</div></td>
+            <td class="num"><button class="btn small" data-action="restore-archive" data-value="${esc(a.name)}" ${
+              busy || !a.statistics.length ? "disabled" : ""
+            }>↩️ ${this.t("restore")}</button></td></tr>`
+          )
+          .join("")}</tbody></table></div>`
+      : `<div class="muted">${this.t("no_archives")}</div>`;
+
+    const journal = jobs.history.length
+      ? `<div class="table-wrap"><table><tbody>${jobs.history
+          .map((j) => {
+            const dur = j.started && j.finished ? this.dur(j.finished - j.started) : "—";
+            const icon = { done: "✅", failed: "❌", cancelled: "⏹️", interrupted: "⚠️" }[j.status] || "⏳";
+            return `<tr><td class="name"><div>${icon} ${this.t(`kind_${j.kind}`)} <span class="muted small">· ${this.t(
+              `st_${j.status}`
+            )}</span></div><div class="muted small">${this._jobSummary(j)}</div></td>
+            <td class="num small">${this.date(j.started || j.created, true)}<div class="muted">${dur}</div></td></tr>`;
+          })
+          .join("")}</tbody></table></div>`
+      : `<div class="muted">${this.t("no_jobs")}</div>`;
+
+    return `${busy ? this._currentJob(jobs.current) : ""}
+      <div class="grid2">
+        ${actions}
+        <div class="card"><h2>📜 ${this.t("journal")}</h2>${journal}</div>
+        <div class="card"><h2>💾 ${this.t("backups")}</h2>${backups}<div class="note">ℹ️ ${this.t("restore_full")}</div></div>
+        <div class="card"><h2>↩️ ${this.t("archives")}</h2>${archives}</div>
       </div>`;
   }
 
@@ -1649,6 +2091,36 @@ const STYLE = `
   .yaml { margin-bottom: 12px; }
   .yaml pre { background: rgba(127,127,127,0.10); border: 1px solid var(--dc-border); border-radius: 8px; padding: 10px 12px;
     max-height: 320px; overflow: auto; }
+  .btn.danger { border-color: var(--error-color, #db4437); color: var(--error-color, #db4437); }
+  .btn.danger.solid { background: var(--error-color, #db4437); color: #fff; }
+  .btn.danger.solid:disabled { background: none; color: var(--error-color, #db4437); }
+  .overlay { position: fixed; inset: 0; z-index: 10; background: rgba(0,0,0,0.55); display: flex; align-items: center;
+    justify-content: center; padding: 16px; }
+  .dialog { width: min(560px, 100%); max-height: calc(100vh - 32px); overflow: auto; }
+  .dialog p { margin: 8px 0; font-size: 14px; }
+  .warn-text { color: var(--warning-color, #ffa600); }
+  .check-line { display: flex; gap: 8px; align-items: center; margin-top: 12px; cursor: pointer; }
+  .check-line input { width: 16px; height: 16px; accent-color: var(--dc-accent); }
+  .checks { list-style: none; padding: 0; margin: 0 0 8px; font-size: 14px; }
+  .checks li { padding: 3px 0; }
+  .checks .loading { padding: 12px; }
+  .confirm { display: flex; flex-direction: column; gap: 6px; margin-top: 14px; font-size: 14px; }
+  .confirm input { font: inherit; color: var(--primary-text-color); background: var(--input-fill-color, rgba(127,127,127,0.12));
+    border: 1px solid var(--dc-border); border-radius: 8px; padding: 8px 10px; letter-spacing: 0.08em; }
+  .dialog-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 16px; }
+  .notice { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 10px 16px; }
+  .icon.small { padding: 4px 8px; font-size: 14px; }
+  .action-row { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 12px; }
+  .path { overflow-wrap: anywhere; font-weight: 400; }
+  .progress { height: 8px; border-radius: 4px; background: rgba(127,127,127,0.18); overflow: hidden; margin: 10px 0; }
+  .progress span { display: block; height: 100%; background: var(--dc-accent); transition: width 0.4s; }
+  .progress.indeterminate span { animation: slide 1.4s ease-in-out infinite; }
+  @keyframes slide { 0% { margin-left: -30%; } 100% { margin-left: 100%; } }
+  .log { font-size: 12px; color: var(--dc-muted); white-space: pre-wrap; margin: 6px 0 0; }
+  .job { border-color: var(--dc-accent); }
+  .pulse { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--dc-accent);
+    animation: pulse 1.2s ease-in-out infinite; vertical-align: middle; }
+  @keyframes pulse { 50% { opacity: 0.25; } }
   @media (max-width: 700px) {
     main { padding: 12px; gap: 12px; }
     .hide-narrow { display: none; }

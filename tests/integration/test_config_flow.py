@@ -50,6 +50,14 @@ async def test_options_flow(recorder_mock, hass: HomeAssistant) -> None:
         "sensor_top_n": 3,
         "update_minutes": 5,
         "cache_hours": 12,
+        # maintenance options keep their defaults
+        "backup_dir": "",
+        "backups_keep": 2,
+        "backup_max_age_hours": 24,
+        "batch_rows": 50_000,
+        "batch_pause_s": 1.0,
+        "backlog_limit": 1000,
+        "undo_days": 30,
     }
     # reload happened with the new options -> 3 chatty sensors
     assert entry.runtime_data.coordinator.top_n == 3

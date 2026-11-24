@@ -178,6 +178,9 @@ class UsageCache:
         self._value: tuple[dict[str, list[str]], dict[str, Any]] | None = None
         self._at = 0.0
 
+    def invalidate(self) -> None:
+        self._value = None
+
     async def async_get(
         self, hass: HomeAssistant, statistic_ids: Iterable[str], *, refresh: bool = False
     ) -> tuple[dict[str, list[str]], dict[str, Any]]:

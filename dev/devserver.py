@@ -19,7 +19,12 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "custom_components" / "database_cleaner"))
 sys.path.insert(0, str(ROOT))
 
+import threading  # noqa: E402
+import time  # noqa: E402
+import uuid  # noqa: E402
+
 from engine import Analyzer  # noqa: E402
+from engine import backup as engine_backup  # noqa: E402
 from engine.db import connect  # noqa: E402
 
 from dev.storage_context import load_context  # noqa: E402
@@ -27,6 +32,74 @@ from dev.storage_context import load_context  # noqa: E402
 PANEL_JS = ROOT / "custom_components" / "database_cleaner" / "frontend" / "panel.js"
 HARNESS = ROOT / "dev" / "harness.html"
 OPTIONS = {"state_windows": [1, 24, 168], "lts_periods": [30, 90, 365], "top_n": 10}
+
+
+class FakeJobs:
+    """UI preview only: jobs advance on a timer and never touch the database."""
+
+    STEPS = {
+        "backup": [("preflight", None), ("backup", None)],
+        "delete": [("preflight", None), ("backup", None), ("delete", 12), ("repack", None)],
+        "repack": [("preflight", None), ("repack", None)],
+        "restore": [("preflight", None), ("restore", 6)],
+    }
+
+    def __init__(self) -> None:
+        self.current: dict | None = None
+        self.history: list[dict] = []
+        self._cancel = False
+        self._lock = threading.Lock()
+
+    def snapshot(self) -> dict:
+        with self._lock:
+            return {"current": dict(self.current) if self.current else None, "history": list(self.history[:20])}
+
+    def start(self, kind: str, params: dict) -> str:
+        with self._lock:
+            if self.current:
+                raise ValueError(f"another job is running: {self.current['kind']}")
+            self._cancel = False
+            self.current = {"id": uuid.uuid4().hex, "kind": kind, "params": params, "status": "running",
+                            "step": None, "done": 0, "total": None, "created": time.time(), "started": time.time(),
+                            "finished": None, "result": None, "error": None, "log": []}
+        threading.Thread(target=self._run, args=(kind, params), daemon=True).start()
+        return self.current["id"]
+
+    def cancel(self) -> bool:
+        self._cancel = bool(self.current)
+        return self._cancel
+
+    def _run(self, kind: str, params: dict) -> None:
+        job = self.current
+        status = "done"
+        for step, total in self.STEPS[kind]:
+            if kind == "delete" and step == "repack" and not params.get("repack"):
+                continue
+            job.update(step=step, done=0, total=total)
+            job["log"].append(time.strftime("%H:%M:%S ") + step)
+            for _ in range(total or 3):
+                if self._cancel and step in ("delete", "restore"):
+                    status = "cancelled"
+                    break
+                time.sleep(0.6)
+                if total:
+                    job["done"] += 1
+            if status != "done":
+                break
+        n = params.get("count") or 0
+        job.update(status=status, step=None, finished=time.time())
+        if status == "done":
+            job["result"] = {
+                "backup": {"deleted": n, "deleted_rows": n * 30000, "size_before": 1166639104,
+                           "size_after": 1166639104 - n * 30000 * 78, "archive": "undo-dev.jsonl.gz"},
+                "delete": {"deleted": n, "deleted_rows": n * 30000, "size_before": 1166639104,
+                           "size_after": 1166639104 - n * 30000 * 78, "archive": "undo-dev.jsonl.gz"},
+                "repack": {"size_before": 1166639104, "size_after": 1100000000},
+                "restore": {"restored": 6, "rows": 6 * 30000},
+            }[kind] if kind != "backup" else {"backup": "home-assistant_v2-dev.db", "size": 1166639104, "removed": []}
+        with self._lock:
+            self.history.insert(0, job)
+            self.current = None
 
 
 def build_app(db: Path, storage: Path, exclude: Path):
@@ -46,8 +119,50 @@ def build_app(db: Path, storage: Path, exclude: Path):
         "dialect": "sqlite",
     }
 
+    jobs = FakeJobs()
+    size = db.stat().st_size
+
+    def preflight(kind: str, repack: bool) -> dict:
+        free = engine_backup.free_space(str(db.parent))
+        checks = [
+            {"key": "ha_running", "ok": True, "value": None},
+            {"key": "no_migration", "ok": True, "value": None},
+            {"key": "schema", "ok": True, "value": 53},
+            {"key": "backlog", "ok": True, "value": 0},
+        ]
+        if kind in ("backup", "delete", "repack"):
+            need = engine_backup.required_space(str(db))
+            checks.append({"key": "backup_space", "ok": free >= need, "value": {"free": free, "required": need}})
+        if kind == "repack" or (kind == "delete" and repack):
+            need = int(size * 1.1)
+            checks.append({"key": "repack_space", "ok": free >= need, "value": {"free": free, "required": need}})
+        if kind in ("delete", "repack"):
+            checks.append({"key": "integrity", "ok": True, "value": ["ok"]})
+        return {"ok": all(c["ok"] for c in checks), "checks": checks, "fresh_backup": None}
+
     def handle(msg: dict):
         kind = msg.get("type", "").split("/", 1)[-1]
+        if kind == "maintenance":
+            return {
+                "settings": {"backup_dir": "/share/database_cleaner/backups (dev simulation)",
+                             "archive_dir": "/share/database_cleaner/backups/undo", "keep": 2,
+                             "max_age_hours": 24, "batch_rows": 50000, "undo_days": 30},
+                "db": {"size": size, "wal_size": 0, "free_pages_ratio": 0.0,
+                       "free_db_dir": engine_backup.free_space(str(db.parent))},
+                "backups": [], "archives": [], "fresh_backup": None, "jobs": jobs.snapshot(),
+            }
+        if kind == "preflight":
+            time.sleep(0.8)
+            return preflight(msg["kind"], bool(msg.get("repack")))
+        if kind == "job/status":
+            return jobs.snapshot()
+        if kind == "job/cancel":
+            return {"cancelling": jobs.cancel()}
+        if kind == "job/start":
+            if msg.get("kind") != "backup" and not msg.get("confirm"):
+                raise ValueError("Destructive jobs need confirm: true")
+            ids = msg.get("statistic_ids") or []
+            return {"job_id": jobs.start(msg["kind"], {"count": len(ids), "repack": msg.get("repack")})}
         if kind == "info":
             return {"version": "dev", "db_path": str(db), "options": OPTIONS, "recorder": recorder}
         if kind == "overview":
