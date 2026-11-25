@@ -8,8 +8,10 @@
 
 const VERSION = "0.3.0";
 const DOMAIN = "database_cleaner";
+const TOUR_SEEN_KEY = `${DOMAIN}_tour_seen`;
 
 const ICON = {
+  help: "M15.07,11.25L14.17,12.17C13.45,12.89 13,13.5 13,15H11V14.5C11,13.39 11.45,12.39 12.17,11.67L13.41,10.41C13.78,10.05 14,9.55 14,9C14,7.9 13.1,7 12,7A2,2 0 0,0 10,9H8A4,4 0 0,1 12,5A4,4 0 0,1 16,9C16,9.88 15.64,10.67 15.07,11.25M13,19H11V17H13M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12C22,6.47 17.5,2 12,2Z",
   menu: "M3,6H21V8H3V6M3,11H21V13H3V11M3,16H21V18H3V16Z",
   refresh:
     "M17.65,6.35C16.2,4.9 14.21,4 12,4A8,8 0 0,0 4,12A8,8 0 0,0 12,20C15.73,20 18.84,17.45 19.73,14H17.65C16.83,16.33 14.61,18 12,18A6,6 0 0,1 6,12A6,6 0 0,1 12,6C13.66,6 15.14,6.69 16.22,7.78L13,11H20V4L17.65,6.35Z",
@@ -23,6 +25,8 @@ const I18N = {
     tab_states: "States",
     tab_health: "Diagnostics",
     refresh: "Refresh",
+    tour: "Guided tour of the panel",
+    tour_failed: "Could not load the guided tour",
     recompute: "Recompute",
     loading: "Loading…",
     error: "Error",
@@ -321,6 +325,8 @@ const I18N = {
     tab_states: "Состояния",
     tab_health: "Диагностика",
     refresh: "Обновить",
+    tour: "Экскурсия по панели",
+    tour_failed: "Не удалось загрузить экскурсию",
     recompute: "Пересчитать",
     loading: "Загрузка…",
     error: "Ошибка",
@@ -770,6 +776,73 @@ class DatabaseCleanerPanel extends HTMLElement {
   disconnectedCallback() {
     clearInterval(this._poll);
     this._poll = null;
+    this._tour?.close();
+  }
+
+  // ---------------------------------------------------------------- guided tour
+  // The tour lives in tour.js (steps + engine), loaded on first use. It only needs
+  // the three hooks below; targets are marked with data-tour="…" in the markup.
+  _tourSeen() {
+    try {
+      return !!localStorage.getItem(TOUR_SEEN_KEY);
+    } catch (_err) {
+      return true;
+    }
+  }
+
+  async _startTour() {
+    if (this._tour) return;
+    try {
+      // Reuse this module's ?v=… query so a new version never serves a stale tour.js.
+      const url = new URL("./tour.js", import.meta.url);
+      url.search = new URL(import.meta.url).search;
+      const mod = await import(url.href);
+      if (this._tour) return;
+      this._tour = mod.startTour(this, {
+        lang: this._lang,
+        onClose: () => {
+          this._tour = null;
+        },
+      });
+      try {
+        localStorage.setItem(TOUR_SEEN_KEY, "1");
+      } catch (_err) {
+        /* storage blocked: the hint simply stays */
+      }
+      this.shadowRoot.querySelector('[data-tour="help"]')?.classList.remove("attn");
+    } catch (err) {
+      console.error("database_cleaner: tour failed", err);
+      this._s.notice = `⚠️ ${this.t("tour_failed")}`;
+      this._renderContent();
+    }
+  }
+
+  /** Hook for the tour: the tab that is open right now. */
+  get tourTab() {
+    return this._s.tab;
+  }
+
+  /** Hook for the tour: reset filters so a step always sees the same list. */
+  tourPrepare(key) {
+    const c = this._s.cand;
+    if (key === "cand-safe") {
+      Object.assign(c, { verdict: "safe", reason: null, search: "", limit: 0, focus: null });
+      this._renderContent();
+    }
+  }
+
+  /** Hook for the tour: open a tab (and start loading its data). */
+  tourGoTo(tab) {
+    if (this._s.tab !== tab) {
+      this._s.tab = tab;
+      this._render();
+      this._ensureTab();
+    }
+  }
+
+  /** Hook for the tour: true while any tab data is still being fetched. */
+  tourBusy() {
+    return Object.keys(this._s.loading).length > 0 || !this._s.info;
   }
 
   _startPolling() {
@@ -891,6 +964,9 @@ class DatabaseCleanerPanel extends HTMLElement {
         break;
       case "refresh":
         this._ensureTab(true);
+        break;
+      case "tour":
+        this._startTour();
         break;
       case "category":
         s.lts.category = s.lts.category === value ? null : value;
@@ -1191,9 +1267,10 @@ class DatabaseCleanerPanel extends HTMLElement {
       <div class="toolbar">
         ${this._narrow ? `<button class="icon" data-action="menu" title="Menu">${svg(ICON.menu)}</button>` : ""}
         <div class="title">${this.t("title")}<span class="sub">v${VERSION}${dbPath}</span></div>
-        <button class="icon" data-action="refresh" title="${this.t("refresh")}">${svg(ICON.refresh)}</button>
+        <button class="icon ${this._tourSeen() ? "" : "attn"}" data-action="tour" data-tour="help" title="${this.t("tour")}">${svg(ICON.help)}</button>
+        <button class="icon" data-action="refresh" data-tour="refresh" title="${this.t("refresh")}">${svg(ICON.refresh)}</button>
       </div>
-      <nav class="tabs">
+      <nav class="tabs" data-tour="tabs">
         ${tabs
           .map(
             (tab) =>
@@ -1348,10 +1425,10 @@ class DatabaseCleanerPanel extends HTMLElement {
 
     const mib = this.t("mib");
     return `
-      <div class="kpis">${kpis}</div>
-      <div class="card"><div class="card-head"><h2>${this.t("space")}</h2>${this._meta(o)}</div>${bar}</div>
-      <div class="card"><h2>${this.t("data_since")}</h2>${ranges}</div>
-      <div class="card"><h2>${this.t("tables")}</h2>
+      <div class="kpis" data-tour="overview-kpis">${kpis}</div>
+      <div class="card" data-tour="overview-space"><div class="card-head"><h2>${this.t("space")}</h2>${this._meta(o)}</div>${bar}</div>
+      <div class="card" data-tour="overview-since"><h2>${this.t("data_since")}</h2>${ranges}</div>
+      <div class="card" data-tour="overview-tables"><h2>${this.t("tables")}</h2>
         <div class="table-wrap"><table>
           <thead><tr><th>${this.t("table")}</th><th class="num">${this.t("rows")}</th>
             <th class="num hide-narrow">${this.t("data")}, ${mib}</th><th class="num hide-narrow">${this.t(
@@ -1498,7 +1575,7 @@ class DatabaseCleanerPanel extends HTMLElement {
       .join("");
 
     const selectionBar = selectable
-      ? `<div class="selbar">
+      ? `<div class="selbar" data-tour="cand-selbar">
           <span><b>${this.t("selected")}: ${this.n(f.selected.size)}</b> <span class="muted">· ≈ ${this.size(selRows * rb)}</span></span>
           <button class="btn small" data-action="select-shown">${this.t("select_shown")}</button>
           <button class="btn small" data-action="clear-selection" ${f.selected.size ? "" : "disabled"}>${this.t(
@@ -1508,7 +1585,7 @@ class DatabaseCleanerPanel extends HTMLElement {
           <button class="btn small" data-action="toggle-yaml" ${f.selected.size ? "" : "disabled"}>${this.t(
           "exclude_yaml"
         )}</button>
-          <button class="btn small danger" data-action="open-delete" ${
+          <button class="btn small danger" data-action="open-delete" data-tour="cand-delete" ${
             f.selected.size && !s.jobs?.current ? "" : "disabled"
           }>🗑️ ${this.t("delete_selected")}</button>
           <span class="toast">${esc(f.toast)}</span>
@@ -1525,9 +1602,9 @@ class DatabaseCleanerPanel extends HTMLElement {
     }
 
     return `
-      <div class="card"><h2>${this.t("coverage")}</h2><div class="sources">${coverage}</div>
+      <div class="card" data-tour="cand-coverage"><h2>${this.t("coverage")}</h2><div class="sources">${coverage}</div>
         <div class="note">ℹ️ ${this.t("not_checked")}</div>${errors}</div>
-      <div class="cats">${cards}</div>
+      <div class="cats" data-tour="cand-verdicts">${cards}</div>
       <div class="card">
         ${
           f.focus
@@ -1536,15 +1613,15 @@ class DatabaseCleanerPanel extends HTMLElement {
               )}</button></div>`
             : `<div class="note">${VERDICT_ICON[f.verdict]} ${this.t(`v_hint_${f.verdict}`)}</div>`
         }
-        ${reasonChips ? `<div class="controls">${reasonChips}</div>` : ""}
-        <div class="controls">
+        ${reasonChips ? `<div class="controls" data-tour="cand-reasons">${reasonChips}</div>` : ""}
+        <div class="controls" data-tour="cand-search">
           <input type="search" data-field="cand-search" placeholder="${this.t("search")}" value="${esc(f.search)}">
           <span class="muted small grow">${this.t("statistics_n")}: ${this.n(items.length)} · ${this.t("rows")}: ${this.n(
       shownRows
     )} · ≈ ${this.size(shownRows * rb)}</span>${this._meta(res)}
         </div>
         ${selectionBar}${yaml}
-        <div class="table-wrap"><table>
+        <div class="table-wrap" data-tour="cand-table"><table>
           <thead><tr>${selectable ? "<th></th>" : ""}<th>${this.t("g_statistic")}</th><th class="num">${this.t(
       "rows"
     )}</th>
@@ -1652,7 +1729,7 @@ class DatabaseCleanerPanel extends HTMLElement {
     const jobs = s.jobs || m.jobs || { current: null, history: [] };
     const busy = !!jobs.current;
 
-    const actions = `<div class="card"><h2>${this.t("actions")}</h2>
+    const actions = `<div class="card" data-tour="maint-actions"><h2>${this.t("actions")}</h2>
       <div class="action-row">
         <button class="btn" data-action="backup-now" ${busy ? "disabled" : ""}>💾 ${this.t("make_backup")}</button>
         <button class="btn" data-action="open-repack" ${busy ? "disabled" : ""}>🗜️ ${this.t("repack_now")}</button>
@@ -1710,9 +1787,9 @@ class DatabaseCleanerPanel extends HTMLElement {
     return `${busy ? this._currentJob(jobs.current) : ""}
       <div class="grid2">
         ${actions}
-        <div class="card"><h2>📜 ${this.t("journal")}</h2>${journal}</div>
-        <div class="card"><h2>💾 ${this.t("backups")}</h2>${backups}<div class="note">ℹ️ ${this.t("restore_full")}</div></div>
-        <div class="card"><h2>↩️ ${this.t("archives")}</h2>${archives}</div>
+        <div class="card" data-tour="maint-journal"><h2>📜 ${this.t("journal")}</h2>${journal}</div>
+        <div class="card" data-tour="maint-backups"><h2>💾 ${this.t("backups")}</h2>${backups}<div class="note">ℹ️ ${this.t("restore_full")}</div></div>
+        <div class="card" data-tour="maint-archives"><h2>↩️ ${this.t("archives")}</h2>${archives}</div>
       </div>`;
   }
 
@@ -1762,7 +1839,7 @@ class DatabaseCleanerPanel extends HTMLElement {
     const filteredRows = items.reduce((a, i) => a + this._ltsRows(i), 0);
 
     const periods = ["all", ...res.periods.slice().sort((a, b) => Number(b) - Number(a))];
-    const controls = `<div class="controls">
+    const controls = `<div class="controls" data-tour="lts-controls">
       <label>${this.t("period")} <select data-field="lts-period">${periods
         .map(
           (p) =>
@@ -1783,7 +1860,7 @@ class DatabaseCleanerPanel extends HTMLElement {
 
     const table = f.groupBy === "statistic" ? this._ltsTable(items, rb, filteredRows) : this._ltsGroups(items, rb, filteredRows);
     return `
-      <div class="cats">${catCards}${diagCard}</div>
+      <div class="cats" data-tour="lts-cats">${catCards}${diagCard}</div>
       <div class="card">
         ${controls}
         <div class="note">ℹ️ ${this.t("lts_flat_note")}</div>
@@ -1977,13 +2054,13 @@ class DatabaseCleanerPanel extends HTMLElement {
       : `<div class="note">${this.t("issues_none")}</div>`;
 
     return `
-      <div class="card"><div class="note">ℹ️ ${this.t("issues_intro")}</div>
+      <div class="card" data-tour="issues-intro"><div class="note">ℹ️ ${this.t("issues_intro")}</div>
         <div class="muted small">${this.n(res.total)} ${this.t("issues_total")} · ${this.n(res.important)} ${this.t(
       "issues_important"
     )} · ${this.n(res.sources?.sensors)} sensors · ${this.n(res.sources?.statistics)} ${this.t("statistics_n").toLowerCase()}</div>${errors}</div>
-      ${res.codes.length ? `<div class="cats">${tiles}</div>` : ""}
+      ${res.codes.length ? `<div class="cats" data-tour="issues-tiles">${tiles}</div>` : ""}
       <div class="card">
-        <div class="controls">
+        <div class="controls" data-tour="issues-filters">
           ${pill("iss-important", "1", this.t("only_important"), f.important, this.t("important_hint"))}
           ${["all", "ha", "own"].map((v) => pill("iss-source", v, this.t(`src_${v}`), f.source === v)).join("")}
         </div>
@@ -2007,7 +2084,7 @@ class DatabaseCleanerPanel extends HTMLElement {
           )}</button>`
       )
       .join("");
-    const controls = `<div class="controls">
+    const controls = `<div class="controls" data-tour="states-controls">
       <span class="muted">${this.t("window")}</span>${chips}
       <label>${this.t("group_by")} <select data-field="st-group">${["entity", "device", "integration", "domain", "area"]
         .map((g) => `<option value="${g}" ${s.st.groupBy === g ? "selected" : ""}>${this.t(`g_${g}`)}</option>`)
@@ -2125,7 +2202,7 @@ class DatabaseCleanerPanel extends HTMLElement {
         <td class="num">${this.pct(i.rows, res.total_rows)}</td></tr>`
       )
       .join("");
-    return `<div class="card"><h2>${this.t("events_top")}</h2><div class="table-wrap"><table>
+    return `<div class="card" data-tour="states-events"><h2>${this.t("events_top")}</h2><div class="table-wrap"><table>
       <thead><tr><th>${this.t("event_type")}</th><th class="num">${this.t("rows")}</th><th class="num">${this.t(
       "share"
     )}</th></tr></thead>
@@ -2207,10 +2284,10 @@ class DatabaseCleanerPanel extends HTMLElement {
         <span class="muted small">· ${this.n(Math.round(chk.took_ms))} ms</span></div>${
         chk.ok ? "" : `<pre>${esc(JSON.stringify(chk, null, 2))}</pre>`
       }`;
-    const integrity = `<div class="card"><div class="card-head"><h2>${this.t("integrity")}</h2>
+    const integrity = `<div class="card" data-tour="health-integrity"><div class="card-head"><h2>${this.t("integrity")}</h2>
       <button class="btn" data-action="check" ${s.loading.check ? "disabled" : ""}>${this.t("run_check")}</button></div>${checkBody}</div>`;
 
-    return `<div class="grid2">${load}${fresh}${probe}${file}${recorder}${integrity}</div>`;
+    return `<div class="grid2" data-tour="health-grid">${load}${fresh}${probe}${file}${recorder}${integrity}</div>`;
   }
 }
 
@@ -2259,6 +2336,7 @@ const STYLE = `
   button { font: inherit; color: inherit; }
   .icon { background: none; border: 0; padding: 8px; border-radius: 50%; cursor: pointer; display: flex; color: inherit; }
   .icon:hover { background: rgba(127,127,127,0.15); }
+  .icon.attn { color: var(--dc-accent); animation: pulse 1.6s ease-in-out infinite; }
   .tabs { display: flex; gap: 4px; padding: 0 12px; overflow-x: auto; scrollbar-width: none; border-bottom: 1px solid var(--dc-border);
     background: var(--app-header-background-color, var(--primary-background-color)); }
   .tab { background: none; border: 0; border-bottom: 2px solid transparent; padding: 12px 14px; cursor: pointer;

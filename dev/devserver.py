@@ -235,6 +235,9 @@ def make_handler(app):
                 self._send(200, HARNESS.read_bytes(), "text/html; charset=utf-8")
             elif path == "/panel.js":
                 self._send(200, PANEL_JS.read_bytes(), "text/javascript; charset=utf-8")
+            elif re.fullmatch(r"/[a-z_]+\.js", path) and (PANEL_JS.parent / path[1:]).is_file():
+                # other frontend modules (tour.js), same directory as panel.js only
+                self._send(200, (PANEL_JS.parent / path[1:]).read_bytes(), "text/javascript; charset=utf-8")
             else:
                 self._send(404, b"not found", "text/plain")
 
