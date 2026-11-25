@@ -1,0 +1,16 @@
+[project]
+name = "home-assistant-database-cleaner"
+version = "0.4.0"
+description = "Home Assistant custom integration to analyse and clean the recorder database"
+requires-python = ">=3.12"
+license = "MIT"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+filterwarnings = ["ignore::pytest.PytestConfigWarning"]
+
+[tool.ruff]
+line-length = 110
+target-version = "py312"

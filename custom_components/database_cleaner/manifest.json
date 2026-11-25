@@ -1,0 +1,14 @@
+{
+  "domain": "database_cleaner",
+  "name": "Database Cleaner",
+  "codeowners": ["@SergeyAnokhin"],
+  "config_flow": true,
+  "dependencies": ["frontend", "http", "panel_custom", "recorder", "websocket_api"],
+  "documentation": "https://github.com/SergeyAnokhin/home-assistant-database-cleaner",
+  "integration_type": "service",
+  "iot_class": "calculated",
+  "issue_tracker": "https://github.com/SergeyAnokhin/home-assistant-database-cleaner/issues",
+  "requirements": [],
+  "single_config_entry": true,
+  "version": "0.4.0"
+}

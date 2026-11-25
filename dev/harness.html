@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Database Cleaner (dev)</title>
+    <style>
+      /* Approximation of Home Assistant's default dark theme variables. */
+      :root {
+        --primary-background-color: #111111;
+        --card-background-color: #1c1c1c;
+        --primary-text-color: #e1e1e1;
+        --secondary-text-color: #9b9b9b;
+        --divider-color: rgba(225, 225, 225, 0.12);
+        --primary-color: #03a9f4;
+        --app-header-background-color: #111111;
+        --app-header-text-color: #e1e1e1;
+        --error-color: #db4437;
+        --warning-color: #ffa600;
+        --success-color: #43a047;
+        --ha-card-border-radius: 12px;
+        color-scheme: dark;
+      }
+      :root[data-theme="light"] {
+        --primary-background-color: #fafafa;
+        --card-background-color: #ffffff;
+        --primary-text-color: #212121;
+        --secondary-text-color: #727272;
+        --divider-color: rgba(0, 0, 0, 0.12);
+        --app-header-background-color: #03a9f4;
+        --app-header-text-color: #ffffff;
+        color-scheme: light;
+      }
+      body { margin: 0; background: var(--primary-background-color); font-family: Roboto, system-ui, sans-serif; }
+    </style>
+  </head>
+  <body>
+    <database-cleaner-panel></database-cleaner-panel>
+    <script type="module">
+      const params = new URLSearchParams(location.search);
+      if (params.get("theme") === "light") document.documentElement.dataset.theme = "light";
+      await import("/panel.js");
+      const lang = params.get("lang") || "ru";
+      const hass = {
+        language: lang,
+        locale: { language: lang },
+        async callWS(msg) {
+          const r = await fetch("/ws", { method: "POST", body: JSON.stringify(msg) });
+          const j = await r.json();
+          if (!j.success) throw j.error;
+          return j.result;
+        },
+      };
+      const panel = document.querySelector("database-cleaner-panel");
+      const narrow = () => window.innerWidth < 870;
+      panel.narrow = narrow();
+      panel.panel = { config: {} };
+      panel.hass = hass;
+      window.addEventListener("resize", () => (panel.narrow = narrow()));
+      panel.addEventListener("hass-toggle-menu", () => console.log("hass-toggle-menu"));
+    </script>
+  </body>
+</html>
