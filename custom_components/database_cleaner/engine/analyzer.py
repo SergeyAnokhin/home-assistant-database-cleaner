@@ -10,7 +10,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass, field
 from typing import Any
 
-from . import health, issues, lts, overview, states
+from . import health, issues, live, lts, overview, states
 from .db import connect
 from .model import Context
 
@@ -152,6 +152,11 @@ class Analyzer:
         for item in result["top"]:
             item["lts_rows"] = None if lts_rows is None else lts_rows.get(item["entity_id"], 0)
         return result
+
+    def live(self, ctx: Context, cursor: dict[str, int] | None) -> dict:
+        """What was written since ``cursor`` (rows per table, who wrote them). Cheap: id lookups."""
+        with self._conn() as conn:
+            return live.snapshot(conn, ctx, self.db_path, now=self.now(), cursor=cursor)
 
     # ------------------------------------------------------------ health
     def health(self, *, run_probe: bool = True) -> dict:

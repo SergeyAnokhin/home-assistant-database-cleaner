@@ -4,18 +4,22 @@ from __future__ import annotations
 
 import sqlite3
 from collections.abc import Callable
+from datetime import timedelta
 from functools import partial
 from typing import TYPE_CHECKING, Any
 
 import voluptuous as vol
 
 from homeassistant.components import websocket_api
+from homeassistant.components.http.auth import async_sign_path
 from homeassistant.components.recorder import get_instance
 from homeassistant.core import HomeAssistant, callback
 
 from . import maintenance
+from .download import DOWNLOAD_PATH, KINDS, find_file
 from .const import CONF_LTS_PERIODS, CONF_STATE_WINDOWS, CONF_TOP_N, DEFAULT_OPTIONS, DOMAIN, VERSION
-from .engine import backup
+from .engine import archive, backup
+from .engine.live import CURSORS
 from .jobs import JobError
 from .registry import async_build_context
 
@@ -40,6 +44,9 @@ def async_register_websocket_commands(hass: HomeAssistant) -> None:
         ws_job_cancel,
         ws_job_status,
         ws_backup_delete,
+        ws_archive_delete,
+        ws_download_sign,
+        ws_live,
     ):
         websocket_api.async_register_command(hass, handler)
 
@@ -239,6 +246,7 @@ _KINDS = vol.In(["backup", "delete", "repack", "restore"])
         vol.Required("type"): f"{DOMAIN}/preflight",
         vol.Required("kind"): _KINDS,
         vol.Optional("repack", default=False): bool,
+        vol.Optional("backup", default=True): bool,
     }
 )
 @websocket_api.async_response
@@ -247,7 +255,9 @@ async def ws_preflight(hass: HomeAssistant, connection: websocket_api.ActiveConn
         return
     data, settings = req
     try:
-        result = await maintenance.async_preflight(hass, data, settings, msg["kind"], repack=msg["repack"])
+        result = await maintenance.async_preflight(
+            hass, data, settings, msg["kind"], repack=msg["repack"], backup_first=msg["backup"]
+        )
     except sqlite3.Error as err:
         connection.send_error(msg["id"], "db_error", str(err))
         return
@@ -261,6 +271,7 @@ async def ws_preflight(hass: HomeAssistant, connection: websocket_api.ActiveConn
         vol.Required("kind"): _KINDS,
         vol.Optional("statistic_ids", default=list): [str],
         vol.Optional("repack", default=False): bool,
+        vol.Optional("backup", default=True): bool,
         vol.Optional("archive"): str,
         vol.Optional("confirm", default=False): bool,
     }
@@ -286,11 +297,13 @@ def ws_job_start(hass: HomeAssistant, connection: websocket_api.ActiveConnection
         runner = lambda ctx: maintenance.run_backup(hass, data, settings, ctx)  # noqa: E731
         params: dict[str, Any] = {}
     elif kind == "delete":
-        runner = lambda ctx: maintenance.run_delete(hass, data, settings, ctx, ids, repack=msg["repack"])  # noqa: E731
-        params = {"count": len(ids), "statistic_ids": ids[:100], "repack": msg["repack"]}
+        runner = lambda ctx: maintenance.run_delete(  # noqa: E731
+            hass, data, settings, ctx, ids, repack=msg["repack"], make_backup=msg["backup"]
+        )
+        params = {"count": len(ids), "statistic_ids": ids[:100], "repack": msg["repack"], "backup": msg["backup"]}
     elif kind == "repack":
-        runner = lambda ctx: maintenance.run_repack(hass, data, settings, ctx)  # noqa: E731
-        params = {}
+        runner = lambda ctx: maintenance.run_repack(hass, data, settings, ctx, make_backup=msg["backup"])  # noqa: E731
+        params = {"backup": msg["backup"]}
     else:
         runner = lambda ctx: maintenance.run_restore(hass, data, settings, ctx, msg["archive"], ids or None)  # noqa: E731
         params = {"archive": msg["archive"], "count": len(ids) or None}
@@ -345,3 +358,87 @@ async def ws_backup_delete(hass: HomeAssistant, connection: websocket_api.Active
         connection.send_error(msg["id"], "invalid", str(err))
         return
     connection.send_result(msg["id"], {"deleted": msg["name"]})
+
+
+@websocket_api.require_admin
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/archive/delete",
+        vol.Required("name"): str,
+        vol.Optional("confirm", default=False): bool,
+    }
+)
+@websocket_api.async_response
+async def ws_archive_delete(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
+    if (req := _require(hass, connection, msg)) is None:
+        return
+    data, settings = req
+    if not msg["confirm"]:
+        connection.send_error(msg["id"], "not_confirmed", "confirm: true is required")
+        return
+    if data.jobs.busy:
+        connection.send_error(msg["id"], "busy", "a job is running")
+        return
+    try:
+        await hass.async_add_executor_job(archive.delete_archive, settings.archive_dir, msg["name"])
+    except archive.ArchiveError as err:
+        connection.send_error(msg["id"], "invalid", str(err))
+        return
+    connection.send_result(msg["id"], {"deleted": msg["name"]})
+
+
+@websocket_api.require_admin
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/download/sign",
+        vol.Required("kind"): vol.In(list(KINDS)),
+        vol.Required("name"): str,
+    }
+)
+@websocket_api.async_response
+async def ws_download_sign(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
+    """A short-lived signed link: a plain browser download cannot carry the WebSocket token."""
+    try:
+        await hass.async_add_executor_job(find_file, hass, msg["kind"], msg["name"])
+    except (backup.BackupError, archive.ArchiveError) as err:
+        connection.send_error(msg["id"], "invalid", str(err))
+        return
+    url = async_sign_path(
+        hass,
+        f"{DOWNLOAD_PATH}/{msg['kind']}/{msg['name']}",
+        timedelta(minutes=10),
+        refresh_token_id=connection.refresh_token_id,
+    )
+    connection.send_result(msg["id"], {"url": url})
+
+
+_CURSOR = vol.Schema({vol.Optional(key): vol.All(int, vol.Range(min=0)) for key in CURSORS})
+
+
+@websocket_api.require_admin
+@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/live", vol.Optional("cursor"): _CURSOR})
+@websocket_api.async_response
+async def ws_live(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
+    """One poll of the live view: rows written since the cursor + the recorder queue."""
+    loaded = _loaded(hass)
+    if loaded is None:
+        connection.send_error(msg["id"], "not_loaded", "Database Cleaner is not set up")
+        return
+    data, _ = loaded
+    instance = get_instance(hass)
+    ctx = async_build_context(hass, instance.entity_filter)
+    cursor = msg.get("cursor")
+    try:
+        result = await hass.async_add_executor_job(data.analyzer.live, ctx, cursor)
+    except sqlite3.Error as err:
+        connection.send_error(msg["id"], "db_error", str(err))
+        return
+    connection.send_result(
+        msg["id"],
+        {
+            **result,
+            "backlog": instance.backlog,
+            "recording": instance.recording,
+            "commit_interval": instance.commit_interval,
+        },
+    )

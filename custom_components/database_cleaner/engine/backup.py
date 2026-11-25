@@ -194,6 +194,16 @@ def delete_backup(dest_dir: str, name: str) -> bool:
     return True
 
 
+def backup_file(dest_dir: str, name: str) -> Path:
+    """Path of one of *our* backups (for downloading). Refuses foreign names and missing files."""
+    if "/" in name or "\\" in name or not (name.startswith(PREFIX) and name.endswith(SUFFIX)):
+        raise BackupError(f"not a Database Cleaner backup: {name}")
+    f = Path(dest_dir) / name
+    if not _manifest_path(f).exists() or not f.is_file():
+        raise BackupError(f"backup not found: {name}")
+    return f
+
+
 def apply_retention(dest_dir: str, keep: int) -> list[str]:
     removed = []
     for m in list_backups(dest_dir)[max(keep, 1) :]:

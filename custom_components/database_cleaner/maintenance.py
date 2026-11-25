@@ -100,11 +100,13 @@ def _db_info(db_path: str, settings: Settings) -> dict:
         version = schema_version(conn)
         page_count = conn.execute("PRAGMA page_count").fetchone()[0]
         freelist = conn.execute("PRAGMA freelist_count").fetchone()[0]
+        page_size = conn.execute("PRAGMA page_size").fetchone()[0]
     return {
         "size": size,
         "wal_size": wal,
         "schema_version": version,
         "free_pages_ratio": freelist / page_count if page_count else 0.0,
+        "free_bytes": freelist * page_size,
         "free_db_dir": backup.free_space(os.path.dirname(os.path.abspath(db_path))),
         "free_backup_dir": backup.free_space(settings.backup_dir),
         "required_backup": backup.required_space(db_path),
@@ -117,6 +119,22 @@ def _free_ratio(db_path: str) -> float:
         pages = conn.execute("PRAGMA page_count").fetchone()[0]
         free = conn.execute("PRAGMA freelist_count").fetchone()[0]
     return free / pages if pages else 0.0
+
+
+def _free_bytes(db_path: str) -> int:
+    """Empty pages inside the file, in bytes: space that is reusable but not yet returned to the disk."""
+    with connect(db_path) as conn:
+        free = conn.execute("PRAGMA freelist_count").fetchone()[0]
+        page = conn.execute("PRAGMA page_size").fetchone()[0]
+    return free * page
+
+
+def _last_backup(settings: Settings) -> dict | None:
+    """The newest verified backup of any age (the panel says "3 hours ago" next to it)."""
+    for m in backup.list_backups(settings.backup_dir):
+        if m.get("verified") and m.get("present_size") == m.get("size"):
+            return {"name": m["name"], "created_ts": m["created_ts"], "size": m["size"]}
+    return None
 
 
 def _rows_for(db_path: str, statistic_ids: list[str]) -> dict[str, int]:
@@ -156,12 +174,19 @@ def maintenance_state(db_path: str, settings: Settings) -> dict:
         "backups": backup.list_backups(settings.backup_dir),
         "archives": archive.list_archives(settings.archive_dir),
         "fresh_backup": (backup.latest_verified(settings.backup_dir, settings.max_age_s) or {}).get("name"),
+        "last_backup": _last_backup(settings),
     }
 
 
 # ---------------------------------------------------------------- preflight
 async def async_preflight(
-    hass: HomeAssistant, data: DatabaseCleanerData, settings: Settings, kind: str, *, repack: bool = False
+    hass: HomeAssistant,
+    data: DatabaseCleanerData,
+    settings: Settings,
+    kind: str,
+    *,
+    repack: bool = False,
+    backup_first: bool = True,
 ) -> dict:
     instance = get_instance(hass)
     checks: list[dict] = []
@@ -177,7 +202,7 @@ async def async_preflight(
     add("backlog", instance.backlog < settings.backlog_limit, instance.backlog)
 
     fresh = await hass.async_add_executor_job(backup.latest_verified, settings.backup_dir, settings.max_age_s)
-    if kind == "backup" or (kind in ("delete", "repack") and fresh is None):
+    if kind == "backup" or (kind in ("delete", "repack") and backup_first and fresh is None):
         add(
             "backup_space",
             info["free_backup_dir"] >= info["required_backup"],
@@ -196,6 +221,7 @@ async def async_preflight(
         "ok": all(c["ok"] for c in checks),
         "checks": checks,
         "fresh_backup": fresh["name"] if fresh else None,
+        "last_backup": await hass.async_add_executor_job(_last_backup, settings),
         "db": info,
     }
 
@@ -264,6 +290,7 @@ async def _commit_and_wait(hass: HomeAssistant) -> None:
 async def _repack(hass: HomeAssistant, data: DatabaseCleanerData, ctx: JobContext) -> dict:
     db_path = data.analyzer.db_path
     size_before = await hass.async_add_executor_job(os.path.getsize, db_path)
+    free_before = await hass.async_add_executor_job(_free_bytes, db_path)
     ctx.step("repack")
     # recorder.purge also removes states older than purge_keep_days — exactly what
     # the nightly purge does anyway. VACUUM runs inside the recorder thread.
@@ -279,7 +306,7 @@ async def _repack(hass: HomeAssistant, data: DatabaseCleanerData, ctx: JobContex
         await asyncio.sleep(2)
     size_after = await hass.async_add_executor_job(os.path.getsize, db_path)
     ctx.log(f"repack: {size_before} -> {size_after} bytes")
-    return {"size_before": size_before, "size_after": size_after}
+    return {"size_before": size_before, "size_after": size_after, "freed_bytes": free_before}
 
 
 # ---------------------------------------------------------------- jobs
@@ -305,10 +332,11 @@ async def run_delete(
     statistic_ids: list[str],
     *,
     repack: bool,
+    make_backup: bool = True,
 ) -> dict:
     db_path = data.analyzer.db_path
     ctx.step("preflight")
-    _raise_if_failed(await async_preflight(hass, data, settings, "delete", repack=repack))
+    _raise_if_failed(await async_preflight(hass, data, settings, "delete", repack=repack, backup_first=make_backup))
 
     # Energy guard, recomputed now (never trust what the browser sent).
     all_ids = await hass.async_add_executor_job(data.analyzer.statistic_ids)
@@ -325,8 +353,13 @@ async def run_delete(
     if not items:
         raise JobError("nothing to delete")
     size_before = await hass.async_add_executor_job(os.path.getsize, db_path)
+    free_before = await hass.async_add_executor_job(_free_bytes, db_path)
 
-    backup_name = await _ensure_backup(hass, data, settings, ctx)
+    backup_name: str | None = None
+    if make_backup:
+        backup_name = await _ensure_backup(hass, data, settings, ctx)
+    else:
+        ctx.log("backup skipped: switched off by the user (the undo archive is still written)")
 
     writer = await hass.async_add_executor_job(
         lambda: archive.ArchiveWriter(settings.archive_dir, job_id=ctx.job.id)
@@ -357,7 +390,10 @@ async def run_delete(
         data.issues.invalidate()
 
     remaining = await hass.async_add_executor_job(_rows_for, db_path, deleted_ids)
+    # Deleted rows leave empty pages inside the file: their size is what the deletion really freed.
+    free_after = await hass.async_add_executor_job(_free_bytes, db_path)
     result: dict[str, Any] = {
+        "freed_bytes": max(0, free_after - free_before),
         "deleted": len(deleted_ids),
         "deleted_rows": deleted_rows,
         "skipped": skipped,
@@ -368,7 +404,10 @@ async def run_delete(
     }
     if repack:
         ctx.check_cancel()
-        result.update(await _repack(hass, data, ctx))
+        repacked = await _repack(hass, data, ctx)
+        repacked.pop("freed_bytes", None)  # keep the deletion's own figure; the file figures come from here
+        result.update(repacked)
+        result["size_before"] = size_before
     else:
         result["size_after"] = await hass.async_add_executor_job(os.path.getsize, db_path)
     await hass.async_add_executor_job(
@@ -377,10 +416,16 @@ async def run_delete(
     return result
 
 
-async def run_repack(hass: HomeAssistant, data: DatabaseCleanerData, settings: Settings, ctx: JobContext) -> dict:
+async def run_repack(
+    hass: HomeAssistant, data: DatabaseCleanerData, settings: Settings, ctx: JobContext, *, make_backup: bool = True
+) -> dict:
     ctx.step("preflight")
-    _raise_if_failed(await async_preflight(hass, data, settings, "repack"))
-    backup_name = await _ensure_backup(hass, data, settings, ctx)
+    _raise_if_failed(await async_preflight(hass, data, settings, "repack", backup_first=make_backup))
+    backup_name: str | None = None
+    if make_backup:
+        backup_name = await _ensure_backup(hass, data, settings, ctx)
+    else:
+        ctx.log("backup skipped: switched off by the user")
     result = await _repack(hass, data, ctx)
     data.analyzer.invalidate()
     return {**result, "backup": backup_name}

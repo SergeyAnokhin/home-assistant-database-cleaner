@@ -164,6 +164,33 @@ export const TOUR_STEPS = [
     },
   },
   {
+    id: "overview-live",
+    tab: "overview",
+    target: "overview-live",
+    ru: {
+      title: "В реальном времени: что пишется в базу",
+      body: `<p>Нажмите <i data-mdi="play"></i> <b>«Запустить»</b> — панель начнёт раз в 2 секунды смотреть, сколько новых строк появилось в базе. Пока кнопка не нажата, база <b>не опрашивается</b>.</p>
+        <ul>
+          <li><i data-mdi="states"></i> <i data-mdi="calendar"></i> Плитки — сколько состояний и событий пишется в минуту и сколько добавлено с запуска</li>
+          <li><i data-mdi="queue"></i> Кольцо — очередь recorder (задачи, ждущие записи); растёт, если база не успевает</li>
+          <li><i data-mdi="database"></i> Размер файла вместе с WAL и его рост</li>
+          <li><i data-mdi="chart"></i> Бегущие столбики — строки за каждый опрос; кольцо справа — кто пишет больше всех за последнюю минуту</li>
+        </ul>
+        <div class="tip">💡 Recorder пишет пачками (раз в несколько секунд), поэтому столбики вспыхивают шагами. Остановить показ — кнопка <i data-mdi="stop"></i>; он сам выключится, если уйти с вкладки.</div>`,
+    },
+    en: {
+      title: "Live: what is being written",
+      body: `<p>Press <i data-mdi="play"></i> <b>“Start”</b> — every 2 seconds the panel checks how many new rows appeared in the database. Until you press it, the database is <b>not queried</b>.</p>
+        <ul>
+          <li><i data-mdi="states"></i> <i data-mdi="calendar"></i> Tiles — states and events written per minute and added since the start</li>
+          <li><i data-mdi="queue"></i> The ring — the recorder queue (tasks waiting to be written); it grows when the database cannot keep up</li>
+          <li><i data-mdi="database"></i> The file size together with the WAL and its growth</li>
+          <li><i data-mdi="chart"></i> Running columns — rows per poll; the ring on the right — who writes the most in the last minute</li>
+        </ul>
+        <div class="tip">💡 The recorder writes in batches (every few seconds), so the columns flash in steps. Stop it with <i data-mdi="stop"></i>; it also stops by itself when you leave the tab.</div>`,
+    },
+  },
+  {
     id: "overview-next",
     tab: "overview",
     target: "overview-next",
@@ -351,15 +378,15 @@ export const TOUR_STEPS = [
     target: "cand-table",
     ru: {
       title: "Список статистик",
-      body: `<p>Для каждой статистики: идентификатор, значки <i data-mdi="dashboards"></i><i data-mdi="automations"></i> — где она используется, название · устройство · интеграция · единица, метки причин, число строк (цветная заливка — доля), вес в MB и дата последней записи.</p>
+      body: `<p>Для каждой статистики: идентификатор (нажмите на него — откроется обычная карточка сущности Home Assistant; рядом значок <i data-mdi="copy"></i> копирует имя), значки <i data-mdi="dashboards"></i><i data-mdi="automations"></i> — где она используется, название · устройство · интеграция · единица, метки причин, число строк (цветная заливка — доля), вес в MB и время последней записи словами («2 месяца назад»; точная дата — во всплывающей подсказке).</p>
         <p>Над списком — поиск по части имени и счётчики: сколько статистик, строк и места в текущем фильтре. Первые 10 строк, остальные — «Показать ещё».</p>
-        <div class="tip">💡 Дата «Последняя» давно в прошлом — сенсор мёртв. Узнали свой нужный датчик? Просто не отмечайте его.</div>`,
+        <div class="tip">💡 Если «Последняя» была месяцы назад — сенсор мёртв. Наведите курсор на время, чтобы увидеть точный момент. Узнали свой нужный датчик? Просто не отмечайте его.</div>`,
     },
     en: {
       title: "The list of statistics",
-      body: `<p>For each statistic: the id, small icons <i data-mdi="dashboards"></i><i data-mdi="automations"></i> showing where it is used, name · device · integration · unit, reason labels, number of rows (the coloured fill is its share), size in MB and the date of the last record.</p>
+      body: `<p>For each statistic: the id (click it to open the standard Home Assistant entity card; the <i data-mdi="copy"></i> icon next to it copies the name), small icons <i data-mdi="dashboards"></i><i data-mdi="automations"></i> showing where it is used, name · device · integration · unit, reason labels, number of rows (the coloured fill is its share), size in MB and the time of the last record in words (“2 months ago”; hover for the exact moment).</p>
         <p>Above the list: a search box and counters — how many statistics, rows and how much space the current filter covers. The first 10 rows are shown, the rest via “Show more”.</p>
-        <div class="tip">💡 A “Last” date far in the past means the sensor is dead. Recognise a sensor you need? Just don't tick it.</div>`,
+        <div class="tip">💡 A “Last” time of months ago means the sensor is dead. Hover the time to see the exact moment. Recognise a sensor you need? Just don't tick it.</div>`,
     },
   },
   {
@@ -371,7 +398,7 @@ export const TOUR_STEPS = [
       title: "Выбор и экспорт",
       body: `<ul>
           <li><i data-mdi="select"></i> Отмечайте флажками слева в списке или жмите <b>«Выбрать показанные»</b></li>
-          <li><i data-mdi="copy"></i> <b>«Скопировать список»</b> — идентификаторы в буфер обмена</li>
+          <li><i data-mdi="copy"></i> <i data-mdi="clear"></i> Маленькие кнопки-значки: скопировать список идентификаторов в буфер обмена и снять выбор (подпись — во всплывающей подсказке)</li>
           <li><i data-mdi="yaml"></i> <b>«YAML для recorder exclude»</b> — готовый фрагмент для configuration.yaml, чтобы живой сенсор перестал записываться</li>
         </ul>
         <div class="tip">💡 Счётчик «Выбрано» показывает, сколько строк и места освободится.</div>`,
@@ -380,7 +407,7 @@ export const TOUR_STEPS = [
       title: "Selecting and exporting",
       body: `<ul>
           <li><i data-mdi="select"></i> Tick the checkboxes in the list or press <b>“Select shown”</b></li>
-          <li><i data-mdi="copy"></i> <b>“Copy list”</b> — copies the ids to the clipboard</li>
+          <li><i data-mdi="copy"></i> <i data-mdi="clear"></i> Small icon buttons: copy the list of ids to the clipboard and clear the selection (the label is in the tooltip)</li>
           <li><i data-mdi="yaml"></i> <b>“YAML for recorder exclude”</b> — a ready snippet for configuration.yaml so a live sensor stops being recorded</li>
         </ul>
         <div class="tip">💡 The “Selected” counter shows how many rows and how much space will be freed.</div>`,
@@ -396,7 +423,7 @@ export const TOUR_STEPS = [
       body: `<p>Кнопка <i data-mdi="delete"></i> оживает, когда что-то выбрано. Что произойдёт после нажатия (то же покажет окно подтверждения):</p>
         <ul>
           <li><i data-mdi="shield_ok"></i> <b>Проверки</b>: HA работает, нет миграции, очередь recorder в норме, хватает места</li>
-          <li><i data-mdi="backup"></i> <b>Бэкап</b> базы, если нет свежего (24 ч)</li>
+          <li><i data-mdi="backup"></i> <b>Бэкап</b> базы, если нет свежего (24 ч). Его можно <b>отключить</b> галочкой в окне — тогда удалённые строки защищает только архив отмены; рядом написано, как давно был последний бэкап</li>
           <li><i data-mdi="delete"></i> Удаление <b>порциями</b> до 50 000 строк; строки сначала уходят в <b>архив отмены</b></li>
           <li><i data-mdi="vacuum"></i> По желанию — сжатие VACUUM</li>
         </ul>
@@ -408,7 +435,7 @@ export const TOUR_STEPS = [
       body: `<p>The <i data-mdi="delete"></i> button comes alive once something is selected. What happens after you press it (the confirmation window shows the same steps):</p>
         <ul>
           <li><i data-mdi="shield_ok"></i> <b>Checks</b>: HA is running, no migration, recorder queue is fine, enough free space</li>
-          <li><i data-mdi="backup"></i> A <b>backup</b> of the database, unless a fresh one (24 h) exists</li>
+          <li><i data-mdi="backup"></i> A <b>backup</b> of the database, unless a fresh one (24 h) exists. You can <b>switch it off</b> with a checkbox in the window — then only the undo archive protects the deleted rows; the window also says how long ago the last backup was made</li>
           <li><i data-mdi="delete"></i> Deletion in <b>batches</b> of up to 50,000 rows; rows go to an <b>undo archive</b> first</li>
           <li><i data-mdi="vacuum"></i> Optionally, VACUUM compaction</li>
         </ul>
@@ -426,13 +453,13 @@ export const TOUR_STEPS = [
       title: "Проблемы: что не так со статистикой",
       body: `<p>Здесь собрано то, что сам Home Assistant считает неправильным (как в «Инструменты разработчика → Статистика»), плюс наши проверки.</p>
         <p>Крупное число — сколько всего проблем и сколько из них важных <i data-mdi="bolt"></i>. Цветная полоса делит их по тяжести: <i data-mdi="error"></i> ошибки, <i data-mdi="warning"></i> предупреждения, <i data-mdi="info"></i> сведения.</p>
-        <div class="tip">💡 Вкладка <b>только показывает</b> проблемы и подсказывает, что делать. Отсюда ничего не меняется.</div>`,
+        <div class="tip">💡 Для каждой проблемы есть <b>пошаговая памятка</b> (гаечный ключ в строке), а ненужную статистику можно отметить и <b>удалить прямо здесь</b>.</div>`,
     },
     en: {
       title: "Problems: what is wrong with statistics",
       body: `<p>This gathers what Home Assistant itself considers wrong (as in “Developer tools → Statistics”) plus our own checks.</p>
         <p>The big number is how many problems there are and how many of them are important <i data-mdi="bolt"></i>. The coloured bar splits them by severity: <i data-mdi="error"></i> errors, <i data-mdi="warning"></i> warnings, <i data-mdi="info"></i> information.</p>
-        <div class="tip">💡 The tab <b>only shows</b> problems and suggests what to do. Nothing is changed from here.</div>`,
+        <div class="tip">💡 Every problem has a <b>step-by-step guide</b> (the wrench in its row), and statistics you do not need can be ticked and <b>deleted right here</b>.</div>`,
     },
   },
   {
@@ -473,7 +500,7 @@ export const TOUR_STEPS = [
           <li><i data-mdi="filter"></i> <b>источник</b>: все · Home Assistant · Database Cleaner</li>
           <li><i data-mdi="search"></i> поиск по имени ниже</li>
         </ul>
-        <p>В списке под каждой проблемой есть подсказка <i data-mdi="tip"></i> что делать, и кнопки <i data-mdi="chart"></i> «Статистика HA», <i data-mdi="open"></i> «Сущность», <i data-mdi="candidates"></i> «В Кандидатах».</p>
+        <p>В списке под каждой проблемой есть короткая подсказка <i data-mdi="tip"></i> и маленькие кнопки: <i data-mdi="maintenance"></i> подробная памятка, <i data-mdi="chart"></i> «Статистика HA», <i data-mdi="open"></i> «Сущность», <i data-mdi="candidates"></i> «В Кандидатах».</p>
         <div class="tip">💡 Начните с «только важные»: именно такие сбои ломают «Энергию», дашборды и автоматизации.</div>`,
     },
     en: {
@@ -483,8 +510,59 @@ export const TOUR_STEPS = [
           <li><i data-mdi="filter"></i> <b>source</b>: all · Home Assistant · Database Cleaner</li>
           <li><i data-mdi="search"></i> search by name below</li>
         </ul>
-        <p>Under each problem there is a hint <i data-mdi="tip"></i> on what to do, and buttons <i data-mdi="chart"></i> “HA statistics”, <i data-mdi="open"></i> “Entity”, <i data-mdi="candidates"></i> “In Candidates”.</p>
+        <p>Under each problem there is a short hint <i data-mdi="tip"></i> and small buttons: <i data-mdi="maintenance"></i> the detailed guide, <i data-mdi="chart"></i> “HA statistics”, <i data-mdi="open"></i> “Entity”, <i data-mdi="candidates"></i> “In Candidates”.</p>
         <div class="tip">💡 Start with “only important”: those are the failures that break Energy, dashboards and automations.</div>`,
+    },
+  },
+
+  {
+    id: "issues-select",
+    tab: "issues",
+    target: "issues-selbar",
+    ru: {
+      title: "Сколько места занимает и удаление здесь же",
+      body: `<p>У каждой проблемной статистики справа видно <b>число строк</b> и примерный <b>вес</b> (КБ, МБ или ГБ).</p>
+        <ul>
+          <li><i data-mdi="select"></i> Отмечайте флажками слева или жмите <b>«Выбрать показанные»</b> — внизу будет итог по строкам и месту</li>
+          <li><i data-mdi="delete"></i> <b>«Удалить выбранное»</b> запускает тот же безопасный конвейер, что и во вкладке «Кандидаты»: проверки, бэкап (его можно отключить), порции, архив отмены</li>
+          <li><i data-mdi="copy"></i> <i data-mdi="clear"></i> Маленькие кнопки: скопировать список и снять выбор</li>
+        </ul>
+        <div class="warn">⚠️ Статистику панели «Энергия» отметить нельзя — она защищена. Остальные проблемы (например, «единица изменилась») часто проще всего решить удалением, если старая история не нужна.</div>`,
+    },
+    en: {
+      title: "How much space it takes, and deletion right here",
+      body: `<p>Every problematic statistic shows its <b>number of rows</b> and an approximate <b>size</b> (KB, MB or GB) on the right.</p>
+        <ul>
+          <li><i data-mdi="select"></i> Tick the boxes on the left or press <b>“Select shown”</b> — the totals for rows and space appear below</li>
+          <li><i data-mdi="delete"></i> <b>“Delete selected”</b> runs the same safe pipeline as the Candidates tab: checks, backup (can be switched off), batches, undo archive</li>
+          <li><i data-mdi="copy"></i> <i data-mdi="clear"></i> Small buttons: copy the list and clear the selection</li>
+        </ul>
+        <div class="warn">⚠️ Statistics used by the Energy dashboard cannot be ticked — they are protected. Other problems (e.g. “unit changed”) are often easiest to solve by deleting when the old history is not needed.</div>`,
+    },
+  },
+  {
+    id: "issues-guide",
+    tab: "issues",
+    target: "issues-table",
+    ru: {
+      title: "Памятка: как исправить именно эту сущность",
+      body: `<p>Гаечный ключ <i data-mdi="maintenance"></i> в строке раскрывает <b>пошаговую памятку</b>, написанную для конкретной сущности:</p>
+        <ul>
+          <li><i data-mdi="folder"></i> <b>в каком файле</b> и в каком разделе править (<code>configuration.yaml</code>, <code>customize.yaml</code>, <code>template.yaml</code>, YAML устройства ESPHome и т. д.)</li>
+          <li><i data-mdi="yaml"></i> <b>готовый YAML</b> с именем сущности, нужными <code>state_class</code>, единицей, классом устройства — вставьте и перезагрузите конфигурацию; кнопка <i data-mdi="copy"></i> копирует блок</li>
+          <li><i data-mdi="open"></i> <b>кнопки-ссылки</b> на нужные страницы Home Assistant: «Инструменты разработчика → Статистика», «Исправления», «Помощники», интеграция, журналы</li>
+        </ul>
+        <div class="tip">💡 Универсальный способ — <code>customize</code>: он работает для любой сущности, кто бы её ни создавал. Для шаблонных, MQTT и ESPHome-сенсоров показан и «родной» способ.</div>`,
+    },
+    en: {
+      title: "The guide: how to fix this very entity",
+      body: `<p>The wrench <i data-mdi="maintenance"></i> in a row opens a <b>step-by-step guide</b> written for that entity:</p>
+        <ul>
+          <li><i data-mdi="folder"></i> <b>which file</b> and which section to edit (<code>configuration.yaml</code>, <code>customize.yaml</code>, <code>template.yaml</code>, the ESPHome device YAML …)</li>
+          <li><i data-mdi="yaml"></i> <b>ready YAML</b> with the entity name and the right <code>state_class</code>, unit, device class — paste it and reload the configuration; the <i data-mdi="copy"></i> button copies the block</li>
+          <li><i data-mdi="open"></i> <b>link buttons</b> to the right Home Assistant pages: “Developer tools → Statistics”, Repairs, Helpers, the integration, logs</li>
+        </ul>
+        <div class="tip">💡 The universal way is <code>customize</code>: it works for any entity, whoever creates it. For template, MQTT and ESPHome sensors the “native” way is shown too.</div>`,
     },
   },
 
@@ -590,12 +668,14 @@ export const TOUR_STEPS = [
     ru: {
       title: "Рейтинг «болтунов»",
       body: `<p>Горизонтальные столбики — десять самых активных сущностей (или групп, если выбрана группировка). Чем длиннее столбик, тем больше строк записано; справа — число и доля от всех записей.</p>
-        <div class="tip">💡 Если пара сущностей занимает половину рейтинга — это первые кандидаты на recorder exclude. Полная таблица — ниже, с сортировкой по заголовкам.</div>`,
+        <p>Маленькая диаграмма в строке — <b>последние 24 часа по часам</b>: ровные столбики — сенсор пишет регулярно, несколько высоких — всплески. Имя сущности открывает её карточку, значок <i data-mdi="copy"></i> копирует имя.</p>
+        <div class="tip">💡 Если пара сущностей занимает половину рейтинга — это первые кандидаты на recorder exclude. Полная таблица — ниже, с сортировкой по заголовкам. Лампочка <i data-mdi="tip"></i> в конце строки раскрывает <b>советы, как снизить болтливость</b> именно для этого типа устройства (Tasmota, Zigbee2MQTT, ZHA, ESPHome, Shelly и др.).</div>`,
     },
     en: {
       title: "The “chatterbox” ranking",
       body: `<p>Horizontal bars show the ten most active entities (or groups, when a grouping is chosen). The longer the bar, the more rows were written; on the right — the count and the share of all records.</p>
-        <div class="tip">💡 If a couple of entities take half of the ranking, they are the first candidates for recorder exclude. The full table is below, sortable by its headers.</div>`,
+        <p>The small chart in a row shows the <b>last 24 hours, hour by hour</b>: even bars mean regular writing, a few tall bars mean bursts. The entity name opens its card, the <i data-mdi="copy"></i> icon copies the name.</p>
+        <div class="tip">💡 If a couple of entities take half of the ranking, they are the first candidates for recorder exclude. The full table is below, sortable by its headers. The bulb <i data-mdi="tip"></i> at the end of a row opens <b>advice on quieting it down</b> for that kind of device (Tasmota, Zigbee2MQTT, ZHA, ESPHome, Shelly and more).</div>`,
     },
   },
   {
@@ -739,13 +819,15 @@ export const TOUR_STEPS = [
     ru: {
       title: "Бэкапы базы",
       body: `<p>Хранятся два последних бэкапа (по умолчанию в <code>/share/database_cleaner/backups</code>), каждый с зелёной отметкой <i data-mdi="verified"></i> «проверен».</p>
-        <div class="warn">⚠️ Полное восстановление файла требует остановить Core: <code>ha core stop</code> → переименовать <code>home-assistant_v2.db</code> (и -wal, -shm) → положить бэкап под этим именем → <code>ha core start</code>.</div>
+        <p>Справа у каждого бэкапа три маленькие кнопки: <i data-mdi="terminal"></i> — <b>команды для восстановления</b> (остановить Core, убрать старую базу, скопировать бэкап, запустить; с вашими путями и вариантами для HA OS, Docker и Core), <i data-mdi="download"></i> — <b>сохранить на компьютер</b>, <i data-mdi="trash_can"></i> — удалить.</p>
+        <div class="warn">⚠️ Полное восстановление файла возможно только при остановленном Home Assistant — поэтому делается в терминале по показанным командам.</div>
         <div class="tip">💡 Папку, число бэкапов и размер порции можно изменить в настройках интеграции.</div>`,
     },
     en: {
       title: "Database backups",
       body: `<p>The two latest backups are kept (by default in <code>/share/database_cleaner/backups</code>), each with a green <i data-mdi="verified"></i> “verified” mark.</p>
-        <div class="warn">⚠️ Restoring the whole file requires stopping Core: <code>ha core stop</code> → rename <code>home-assistant_v2.db</code> (and -wal, -shm) → put the backup in its place under that name → <code>ha core start</code>.</div>
+        <p>Every backup has three small buttons on the right: <i data-mdi="terminal"></i> — the <b>commands to restore it</b> (stop Core, move the old database aside, copy the backup, start; with your paths and variants for HA OS, Docker and Core), <i data-mdi="download"></i> — <b>save to this computer</b>, <i data-mdi="trash_can"></i> — delete.</p>
+        <div class="warn">⚠️ Restoring the whole file is only possible while Home Assistant is stopped — so it is done in a terminal with the commands shown.</div>
         <div class="tip">💡 The folder, the number of backups and the batch size can be changed in the integration settings.</div>`,
     },
   },
@@ -755,13 +837,13 @@ export const TOUR_STEPS = [
     target: "maint-archives",
     ru: {
       title: "Архивы отмены",
-      body: `<p>Перед каждым удалением строки статистики сохраняются в архив. Кнопка <i data-mdi="restore"></i> <b>«Восстановить»</b> возвращает их через официальный импорт статистики — <b>без остановки HA</b>.</p>
-        <div class="tip">💡 Архивы хранятся 30 дней. Передумали — вернуть удалённое можно в пару кликов. Рядом, в «Журнале», история всех заданий: значок показывает итог, а две полоски «до → после» — сколько места удалось вернуть.</div>`,
+      body: `<p>Перед каждым удалением строки статистики сохраняются в архив. Кнопки в строке: <i data-mdi="info"></i> — <b>что в архиве</b> (окно со списком; по умолчанию выбрано всё, можно снять галочки и вернуть только часть), <i data-mdi="restore"></i> — вернуть всё сразу через официальный импорт статистики (<b>без остановки HA</b>), <i data-mdi="download"></i> — сохранить на компьютер, <i data-mdi="trash_can"></i> — удалить архив.</p>
+        <div class="tip">💡 Архивы хранятся 30 дней. Передумали — вернуть удалённое можно в пару кликов. Рядом, в «Журнале», история всех заданий: значок показывает итог, а текст — сколько данных удалено, сколько места освободилось внутри файла и как изменился размер файла (без VACUUM он не уменьшается).</div>`,
     },
     en: {
       title: "Undo archives",
-      body: `<p>Before every deletion the statistics rows are saved to an archive. The <i data-mdi="restore"></i> <b>“Restore”</b> button brings them back through the official statistics import — <b>without stopping HA</b>.</p>
-        <div class="tip">💡 Archives are kept for 30 days. Changed your mind? Restoring takes a couple of clicks. Next to it, the “Journal” shows the history of all jobs: the badge shows the outcome and the two “before → after” bars show how much space was won back.</div>`,
+      body: `<p>Before every deletion the statistics rows are saved to an archive. Buttons in a row: <i data-mdi="info"></i> — <b>what is inside</b> (a window with the list; everything is selected by default, untick to bring back only some), <i data-mdi="restore"></i> — bring everything back through the official statistics import (<b>without stopping HA</b>), <i data-mdi="download"></i> — save to this computer, <i data-mdi="trash_can"></i> — delete the archive.</p>
+        <div class="tip">💡 Archives are kept for 30 days. Changed your mind? Restoring takes a couple of clicks. Next to it, the “Journal” shows the history of all jobs: the badge shows the outcome and the text says how much data was deleted, how much space was freed inside the file and how the file size changed (without VACUUM it does not shrink).</div>`,
     },
   },
 

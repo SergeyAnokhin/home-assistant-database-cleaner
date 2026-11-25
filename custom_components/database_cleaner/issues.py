@@ -125,9 +125,14 @@ async def async_collect_issues(
         _LOGGER.debug("Own statistics checks failed", exc_info=True)
 
     names = {eid: st["name"] for eid, st in states.items()}
-    merged = engine.merge([*ha_issues, *own], items, names)
+    attrs = {
+        eid: {"state_class": st["state_class"], "device_class": st["device_class"], "unit": st["unit"]}
+        for eid, st in states.items()
+    }
+    merged = engine.merge([*ha_issues, *own], items, names, attrs)
     return {
         **merged,
+        "row_bytes": stats["row_bytes"],
         "sources": {
             "usage": ctx.usage_sources,
             "sensors": len(states),

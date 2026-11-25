@@ -38,7 +38,13 @@ async def test_setup_panel_sensors_and_ws(recorder_mock, hass: HomeAssistant, ha
     assert chatty_1 is not None
     state = hass.states.get(chatty_1)
     assert state.attributes["top_entity_id"] == "sensor.chatty_power"
-    assert int(state.state) == 5
+    # the state is the entity's name; how loud it is lives in the attributes
+    assert state.state == "chatty power"
+    assert state.attributes["updates_24h"] == 5
+    assert state.attributes["updates_7d"] == 5 and state.attributes["updates_30d"] == 5
+    assert len(state.attributes["hourly_24h"]) == 24 and sum(state.attributes["hourly_24h"]) == 5
+    assert state.attributes["per_hour_24h"] == round(5 / 24, 1)
+    assert "unit_of_measurement" not in state.attributes
     assert "state_class" not in state.attributes
     size = hass.states.get(ent_reg.async_get_entity_id("sensor", DOMAIN, f"{entry.entry_id}_database_size"))
     assert float(size.state) >= 0
@@ -53,6 +59,7 @@ async def test_setup_panel_sensors_and_ws(recorder_mock, hass: HomeAssistant, ha
             ("events", {"window_hours": 1}),
             ("health", {}),
             ("quick_check", {}),
+            ("live", {}),
         ],
         start=1,
     ):
@@ -65,6 +72,16 @@ async def test_setup_panel_sensors_and_ws(recorder_mock, hass: HomeAssistant, ha
             assert msg["result"]["ok"] is True
         if cmd == "info":
             assert msg["result"]["recorder"]["dialect"] == "sqlite"
+        if cmd == "live":
+            # first poll only hands out the cursor; the next one reports what was added since
+            assert msg["result"]["added"] is None and msg["result"]["cursor"]["states"] > 0
+            hass.states.async_set("sensor.chatty_power", "99", {"unit_of_measurement": "W"})
+            await async_wait_recording_done(hass)
+            await client.send_json({"id": 99, "type": f"{DOMAIN}/live", "cursor": msg["result"]["cursor"]})
+            again = (await client.receive_json())["result"]
+            assert again["added"]["states"] >= 1
+            assert again["top"][0]["entity_id"] == "sensor.chatty_power"
+            assert again["backlog"] == 0 and again["recording"] is True
 
     # unload removes the panel
     assert await hass.config_entries.async_unload(entry.entry_id)

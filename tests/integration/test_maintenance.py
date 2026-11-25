@@ -150,6 +150,8 @@ async def test_delete_restore_repack_cycle(setup, hass: HomeAssistant, hass_ws_c
     assert [b["name"] for b in state["backups"]] == [res["backup"]]
     assert state["archives"][0]["name"] == res["archive"]
     assert state["fresh_backup"] == res["backup"]
+    assert state["last_backup"]["name"] == res["backup"]
+    assert res["freed_bytes"] >= 0 and res["size_before"] >= res["size_after"] or res["size_after"] > 0
     assert [j["kind"] for j in state["jobs"]["history"][:4]] == ["repack", "restore", "delete", "delete"]
 
     # --- delete the backup (needs confirmation, refuses foreign names)
@@ -158,6 +160,41 @@ async def test_delete_restore_repack_cycle(setup, hass: HomeAssistant, hass_ws_c
     await client.send_json({"id": 9, "type": f"{DOMAIN}/backup/delete", "name": res["backup"], "confirm": True})
     assert (await client.receive_json())["success"]
     assert not os.path.exists(os.path.join(backup_dir, res["backup"]))
+
+
+async def test_backup_is_optional_archives_can_be_deleted_and_downloaded(
+    setup, hass: HomeAssistant, hass_ws_client
+) -> None:
+    entry, backup_dir = setup
+    data = entry.runtime_data
+    client = await hass_ws_client(hass)
+
+    # without a backup the preflight no longer asks for space for one, and no backup is made
+    await client.send_json({"id": 1, "type": f"{DOMAIN}/preflight", "kind": "delete", "backup": False})
+    pre = (await client.receive_json())["result"]
+    assert "backup_space" not in {c["key"] for c in pre["checks"]}
+    msg = await _job(client, 2, kind="delete", statistic_ids=["sensor.junk_a"], backup=False, confirm=True)
+    assert msg["success"], msg
+    await data.jobs.async_wait()
+    job = data.jobs.snapshot()["history"][0]
+    assert job["status"] == "done", job
+    assert job["result"]["backup"] is None and job["params"]["backup"] is False
+    assert job["result"]["freed_bytes"] >= 0
+    assert not os.path.isdir(backup_dir) or not [f for f in os.listdir(backup_dir) if f.endswith(".db")]
+
+    # the archive can be downloaded through a signed link, and then deleted
+    archive = job["result"]["archive"]
+    await client.send_json({"id": 3, "type": f"{DOMAIN}/download/sign", "kind": "archive", "name": archive})
+    url = (await client.receive_json())["result"]["url"]
+    assert url.startswith(f"/api/{DOMAIN}/download/archive/{archive}?authSig=")
+    await client.send_json({"id": 4, "type": f"{DOMAIN}/download/sign", "kind": "archive", "name": "../x"})
+    assert (await client.receive_json())["error"]["code"] == "invalid"
+
+    await client.send_json({"id": 5, "type": f"{DOMAIN}/archive/delete", "name": archive})
+    assert (await client.receive_json())["error"]["code"] == "not_confirmed"
+    await client.send_json({"id": 6, "type": f"{DOMAIN}/archive/delete", "name": archive, "confirm": True})
+    assert (await client.receive_json())["success"]
+    assert not os.path.exists(os.path.join(backup_dir, "undo", archive))
 
 
 async def test_one_job_at_a_time_and_cancel(setup, hass: HomeAssistant, hass_ws_client) -> None:

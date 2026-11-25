@@ -28,6 +28,13 @@ def async_build_context(hass: HomeAssistant, entity_filter=None) -> Context:
         state = hass.states.get(entry.entity_id)
         name = state.name if state else (entry.name or entry.original_name)
         category = entry.entity_category
+        hint = None
+        if entry.platform == "mqtt":
+            # Zigbee2MQTT publishes through MQTT discovery: only the device identifiers
+            # (or the discovery unique_id) tell it apart from any other MQTT device.
+            idents = (str(i[1]) for i in (device.identifiers if device else ()) if len(i) > 1)
+            if any(i.startswith("zigbee2mqtt") for i in idents) or "zigbee2mqtt" in str(entry.unique_id or ""):
+                hint = "zigbee2mqtt"
         entities[entry.entity_id] = EntityInfo(
             entity_id=entry.entity_id,
             name=name,
@@ -38,6 +45,7 @@ def async_build_context(hass: HomeAssistant, entity_filter=None) -> Context:
             disabled=entry.disabled_by is not None,
             entity_category=getattr(category, "value", category),
             registered=True,
+            hint=hint,
         )
 
     # Entities without a registry entry (YAML without unique_id): state machine only.
