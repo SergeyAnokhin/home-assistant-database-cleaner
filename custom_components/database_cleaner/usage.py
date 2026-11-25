@@ -1,14 +1,15 @@
-"""Where is each statistic used? Energy, dashboards, automations, scripts, scenes, groups, persons, helpers.
+"""Where is each statistic used? Energy, dashboards, automations, scripts, scenes, groups, persons, helpers, YAML.
 
 Read-only. Every source is optional: if one fails (integration not loaded,
 internal API changed) it is reported in ``sources["errors"]`` and the others
 still count. A statistic referenced nowhere we can see is "unused", never
-"safe": templates in YAML, Node-RED, AppDaemon or Grafana are invisible here.
+"safe": Node-RED, AppDaemon, Grafana and other outside systems are invisible here.
 """
 
 from __future__ import annotations
 
 import logging
+import os
 import time
 from collections.abc import Callable, Iterable
 from typing import Any
@@ -21,6 +22,25 @@ from .engine.candidates import entity_tokens
 
 _LOGGER = logging.getLogger(__name__)
 CACHE_TTL_S = 300
+
+# YAML scan limits: the config folder may contain anything.
+YAML_SKIP_DIRS = {
+    ".storage",
+    ".git",
+    ".cloud",
+    "custom_components",
+    "deps",
+    "www",
+    "node_modules",
+    "tts",
+    "backups",
+    "database_cleaner",
+    "esphome",
+    "__pycache__",
+}
+YAML_SKIP_FILES = {"secrets.yaml", "secrets.yml"}
+YAML_MAX_FILE_BYTES = 2 * 1024 * 1024
+YAML_MAX_FILES = 2000
 
 
 def _finders() -> list[tuple[str, Callable[[HomeAssistant, str], list[str]]]]:
@@ -71,6 +91,58 @@ def _raw_config_refs(hass: HomeAssistant, domain: str) -> list[tuple[str, set[st
         if raw:
             out.append((entity.entity_id, entity_tokens(raw)))
     return out
+
+
+def _strip_yaml_comment(line: str) -> str:
+    """Drop ``# comment`` (full-line or trailing) without breaking quoted '#'."""
+    quote = ""
+    for i, ch in enumerate(line):
+        if quote:
+            if ch == quote:
+                quote = ""
+        elif ch in "\"'":
+            quote = ch
+        elif ch == "#" and (i == 0 or line[i - 1].isspace()):
+            return line[:i]
+    return line
+
+
+def _yaml_refs(config_dir: str, wanted: set[str]) -> tuple[dict[str, list[str]], int]:
+    """Entity ids mentioned in the YAML files of the config folder (blocking).
+
+    Returns ``({entity_id: ["yaml:<path>:<first line>", ...]}, files_scanned)``.
+    ``secrets.yaml`` is never read; commented-out text does not count; a
+    mention inside a Jinja comment or a ``customize:`` block still does — that
+    only ever makes a statistic look *used*, never deletable.
+    """
+    refs: dict[str, list[str]] = {}
+    scanned = 0
+    for root, dirs, files in os.walk(config_dir):
+        dirs[:] = sorted(d for d in dirs if d not in YAML_SKIP_DIRS and not d.startswith("."))
+        for name in sorted(files):
+            if not name.endswith((".yaml", ".yml")) or name in YAML_SKIP_FILES:
+                continue
+            if scanned >= YAML_MAX_FILES:
+                return refs, scanned
+            path = os.path.join(root, name)
+            try:
+                if os.path.getsize(path) > YAML_MAX_FILE_BYTES:
+                    continue
+                with open(path, encoding="utf-8", errors="replace") as handle:
+                    lines = handle.readlines()
+            except OSError:
+                continue
+            scanned += 1
+            rel = os.path.relpath(path, config_dir).replace(os.sep, "/")
+            seen: set[str] = set()
+            for number, raw in enumerate(lines, start=1):
+                text = _strip_yaml_comment(raw)
+                if "." not in text:
+                    continue
+                for eid in entity_tokens(text) & wanted - seen:
+                    seen.add(eid)
+                    refs.setdefault(eid, []).append(f"yaml:{rel}:{number}")
+    return refs, scanned
 
 
 async def _energy_ids(hass: HomeAssistant) -> set[str]:
@@ -164,6 +236,15 @@ async def async_collect_usage(
     except Exception as err:  # noqa: BLE001
         errors.append(f"helpers: {err}")
         sources["helpers"] = None
+
+    try:
+        yaml_refs, yaml_files = await hass.async_add_executor_job(_yaml_refs, hass.config.config_dir, wanted)
+        for eid, items in yaml_refs.items():
+            refs.setdefault(eid, set()).update(items)
+        sources["yaml_files"] = yaml_files
+    except Exception as err:  # noqa: BLE001
+        errors.append(f"yaml: {err}")
+        sources["yaml_files"] = None
 
     if errors:
         _LOGGER.debug("Usage scan incomplete: %s", errors)

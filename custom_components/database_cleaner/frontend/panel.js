@@ -6,7 +6,7 @@
  * panel follows dark / light mode automatically.
  */
 
-const VERSION = "0.2.0";
+const VERSION = "0.3.0";
 const DOMAIN = "database_cleaner";
 
 const ICON = {
@@ -150,6 +150,56 @@ const I18N = {
     mib: "MiB",
     commit_note: "The recorder writes in batches every {s} s, so the most recent seconds are not visible yet.",
     tab_candidates: "Candidates",
+    tab_issues: "Problems",
+    issues_intro: "What Home Assistant reports about statistics (the same as Developer tools → Statistics) plus our own checks. This tab only shows problems; nothing is changed from here.",
+    only_important: "⚡ only important",
+    important_hint: "Entities that are used in Energy, dashboards, automations, scripts or YAML",
+    src_all: "all sources",
+    src_ha: "Home Assistant",
+    src_own: "Database Cleaner",
+    issues_none: "✅ No problems found",
+    issues_wait: "Reads every sensor and every statistic; the first run can take a minute.",
+    issues_total: "problems",
+    issues_important: "of them important",
+    col_problem: "Problem",
+    col_source: "Source",
+    act_ha_stats: "HA statistics",
+    act_entity: "Entity",
+    act_candidates: "In Candidates",
+    in_repairs: "in Repairs",
+    cand_focus: "Showing one statistic from the Problems tab:",
+    cand_unfocus: "Show all",
+    sev_error: "error",
+    sev_warning: "warning",
+    sev_info: "info",
+    i_units_changed: "Unit changed",
+    i_state_class_removed: "state_class removed",
+    i_mean_type_changed: "Mean type changed",
+    i_entity_no_longer_recorded: "Excluded from recorder, statistics remain",
+    i_entity_not_recorded: "Has state_class but is excluded from recorder",
+    i_no_state: "Statistics without an entity",
+    i_no_statistics: "Has state_class, but no statistics yet",
+    i_lts_stalled: "Statistics stopped being written",
+    i_unit_not_allowed: "Unit does not fit the device class",
+    i_state_class_not_allowed: "state_class does not fit the device class",
+    i_meta_mismatch: "Statistics metadata disagree with state_class",
+    i_sum_decrease: "Cumulative sum goes down",
+    i_missing_state_class: "No state_class: not kept as long-term statistics",
+    i_unavailable_important: "Used entity is unavailable",
+    i_fix_units_changed: "Developer tools → Statistics offers to convert or fix the unit; or delete the statistic if the old history is not needed.",
+    i_fix_state_class_removed: "Give the sensor its state_class back, or delete the statistic.",
+    i_fix_mean_type_changed: "Old and new statistics cannot be mixed: delete the statistic and start over.",
+    i_fix_entity_no_longer_recorded: "Remove the entity from recorder exclude, or delete its statistics.",
+    i_fix_entity_not_recorded: "Informational: statistics are not collected because of recorder exclude.",
+    i_fix_no_state: "The sensor is gone: if nobody needs the history, delete it in Candidates.",
+    i_fix_no_statistics: "Wait one hour; if it stays, check recorder include/exclude and that the state is numeric.",
+    i_fix_lts_stalled: "Usually the sensor is unavailable or reports text. Fix the source or delete the statistic.",
+    i_fix_unit_not_allowed: "Fix the unit of measurement in the integration or template; HA ignores such values for statistics.",
+    i_fix_state_class_not_allowed: "Pick a state_class that is allowed for this device class (see HA docs on sensors).",
+    i_fix_meta_mismatch: "Delete the statistic so it is rebuilt with the right type, or restore the previous state_class.",
+    i_fix_sum_decrease: "Negative consumption appears in Energy. Fix the sum in Developer tools → Statistics (adjust) or delete the broken period.",
+    i_fix_missing_state_class: "Add state_class: measurement (or total_increasing) if you want long-term statistics.",
+    i_fix_unavailable_important: "Check the device or integration: dashboards and automations rely on this entity.",
     v_safe: "Can be deleted",
     v_unused: "Not used anywhere",
     v_review: "Review",
@@ -174,7 +224,7 @@ const I18N = {
     r_test_name: "looks like a test",
     r_tiny: "almost empty",
     coverage: "Checked for references",
-    not_checked: "Not visible here: YAML templates and YAML helpers, Node-RED, AppDaemon, external tools (Grafana, InfluxDB). Check them yourself before deleting “not used” statistics.",
+    not_checked: "Not visible here: Node-RED, AppDaemon, packages outside the config folder, external tools (Grafana, InfluxDB). YAML files of the config folder are searched as text (comments and secrets.yaml are skipped). Check the rest yourself before deleting “not used” statistics.",
     src_energy: "energy",
     src_dashboards: "dashboards",
     src_automations: "automations",
@@ -183,6 +233,7 @@ const I18N = {
     src_groups: "groups",
     src_persons: "persons",
     src_helpers: "helpers",
+    src_yaml_files: "YAML files",
     not_scanned: "not scanned",
     scan_errors: "Some sources could not be read",
     all_reasons: "All",
@@ -397,6 +448,56 @@ const I18N = {
     mib: "МиБ",
     commit_note: "Recorder пишет пачками раз в {s} с, поэтому последние секунды ещё не видны.",
     tab_candidates: "Кандидаты",
+    tab_issues: "Проблемы",
+    issues_intro: "Что Home Assistant сообщает о статистике (то же, что «Инструменты разработчика → Статистика») плюс наши проверки. Вкладка только показывает проблемы — отсюда ничего не меняется.",
+    only_important: "⚡ только важные",
+    important_hint: "Сущности, которые используются в Энергии, дашбордах, автоматизациях, скриптах или YAML",
+    src_all: "все источники",
+    src_ha: "Home Assistant",
+    src_own: "Database Cleaner",
+    issues_none: "✅ Проблем не найдено",
+    issues_wait: "Читает все сенсоры и всю статистику; первый запуск может занять минуту.",
+    issues_total: "проблем",
+    issues_important: "из них важных",
+    col_problem: "Проблема",
+    col_source: "Источник",
+    act_ha_stats: "Статистика HA",
+    act_entity: "Сущность",
+    act_candidates: "В «Кандидатах»",
+    in_repairs: "в «Исправлениях»",
+    cand_focus: "Показана одна статистика с вкладки «Проблемы»:",
+    cand_unfocus: "Показать все",
+    sev_error: "ошибка",
+    sev_warning: "предупреждение",
+    sev_info: "сведения",
+    i_units_changed: "Изменилась единица измерения",
+    i_state_class_removed: "У сенсора пропал state_class",
+    i_mean_type_changed: "Изменился тип усреднения",
+    i_entity_no_longer_recorded: "Исключена из recorder, статистика осталась",
+    i_entity_not_recorded: "Есть state_class, но сущность исключена из recorder",
+    i_no_state: "Статистика без сущности",
+    i_no_statistics: "Есть state_class, но статистики ещё нет",
+    i_lts_stalled: "Статистика перестала писаться",
+    i_unit_not_allowed: "Единица не подходит к классу устройства",
+    i_state_class_not_allowed: "state_class не подходит к классу устройства",
+    i_meta_mismatch: "Метаданные статистики не совпадают со state_class",
+    i_sum_decrease: "Накопленная сумма уменьшается",
+    i_missing_state_class: "Нет state_class: долговременная статистика не ведётся",
+    i_unavailable_important: "Используемая сущность недоступна",
+    i_fix_units_changed: "«Инструменты разработчика → Статистика» предложит пересчитать или исправить единицу; либо удалите статистику, если старая история не нужна.",
+    i_fix_state_class_removed: "Верните сенсору state_class или удалите статистику.",
+    i_fix_mean_type_changed: "Старую и новую статистику смешивать нельзя: удалите её и начните заново.",
+    i_fix_entity_no_longer_recorded: "Уберите сущность из recorder exclude или удалите её статистику.",
+    i_fix_entity_not_recorded: "Справочно: статистика не собирается из-за recorder exclude.",
+    i_fix_no_state: "Сенсора больше нет: если история не нужна, удалите её во вкладке «Кандидаты».",
+    i_fix_no_statistics: "Подождите час; если не появилась — проверьте include/exclude recorder и что состояние числовое.",
+    i_fix_lts_stalled: "Обычно сенсор недоступен или отдаёт текст. Почините источник или удалите статистику.",
+    i_fix_unit_not_allowed: "Исправьте единицу измерения в интеграции или шаблоне; HA не учитывает такие значения в статистике.",
+    i_fix_state_class_not_allowed: "Выберите state_class, допустимый для этого класса устройства (см. документацию HA по сенсорам).",
+    i_fix_meta_mismatch: "Удалите статистику, чтобы она пересоздалась с правильным типом, или верните прежний state_class.",
+    i_fix_sum_decrease: "В «Энергии» появляется отрицательное потребление. Исправьте сумму в «Инструменты разработчика → Статистика» или удалите испорченный период.",
+    i_fix_missing_state_class: "Добавьте state_class: measurement (или total_increasing), если нужна долговременная статистика.",
+    i_fix_unavailable_important: "Проверьте устройство или интеграцию: дашборды и автоматизации рассчитывают на эту сущность.",
     v_safe: "Можно удалить",
     v_unused: "Нигде не используются",
     v_review: "Проверить",
@@ -421,7 +522,7 @@ const I18N = {
     r_test_name: "похоже на тест",
     r_tiny: "почти пустая",
     coverage: "Где искали ссылки",
-    not_checked: "Отсюда не видно: шаблоны и хелперы в YAML, Node-RED, AppDaemon, внешние системы (Grafana, InfluxDB). Проверьте их сами, прежде чем удалять «неиспользуемые».",
+    not_checked: "Отсюда не видно: Node-RED, AppDaemon, пакеты вне папки конфига, внешние системы (Grafana, InfluxDB). YAML-файлы папки конфига просматриваются как текст (комментарии и secrets.yaml пропускаются). Остальное проверьте сами, прежде чем удалять «неиспользуемые».",
     src_energy: "энергия",
     src_dashboards: "дашборды",
     src_automations: "автоматизации",
@@ -430,6 +531,7 @@ const I18N = {
     src_groups: "группы",
     src_persons: "люди",
     src_helpers: "хелперы",
+    src_yaml_files: "YAML-файлы",
     not_scanned: "не проверялось",
     scan_errors: "Часть источников прочитать не удалось",
     all_reasons: "Все",
@@ -550,6 +652,7 @@ const REF_ICON = {
   group: "👥",
   person: "🧑",
   helper: "🧩",
+  yaml: "📄",
 };
 // Entities that still exist and are recorded: excluding them in YAML makes sense.
 const LIVE_CATEGORIES = new Set(["healthy", "stopped", "no_registry", "no_states"]);
@@ -582,7 +685,9 @@ class DatabaseCleanerPanel extends HTMLElement {
       errors: {},
       lts: { period: "all", groupBy: "statistic", category: null, diagnostic: false, search: "", limit: 0, sort: "rows" },
       st: { window: null, groupBy: "entity", limit: 0, sort: "rows" },
-      cand: { verdict: "safe", reason: null, search: "", limit: 0, selected: new Set(), yaml: false, toast: "" },
+      cand: { verdict: "safe", reason: null, search: "", limit: 0, selected: new Set(), yaml: false, toast: "", focus: null },
+      issues: null,
+      iss: { source: "all", important: false, code: null, search: "", limit: 0 },
       maintenance: null,
       jobs: null,
       dialog: null,
@@ -744,6 +849,9 @@ class DatabaseCleanerPanel extends HTMLElement {
         if (force || (!s.statistics && !s.loading.statistics))
           this._load("statistics", "statistics", { refresh: force });
         break;
+      case "issues":
+        if (force || (!s.issues && !s.loading.issues)) this._load("issues", "issues", { refresh: force });
+        break;
       case "states":
         if (force || (!s.states && !s.loading.states)) this._loadStates();
         break;
@@ -818,7 +926,48 @@ class DatabaseCleanerPanel extends HTMLElement {
       case "check":
         this._load("check", "quick_check");
         break;
+      case "iss-code":
+        s.iss.code = s.iss.code === value ? null : value;
+        s.iss.limit = 0;
+        this._renderContent();
+        break;
+      case "iss-important":
+        s.iss.important = !s.iss.important;
+        s.iss.limit = 0;
+        this._renderContent();
+        break;
+      case "iss-source":
+        s.iss.source = value;
+        s.iss.limit = 0;
+        this._renderContent();
+        break;
+      case "more-iss":
+        s.iss.limit += this._topN();
+        this._renderContent();
+        break;
+      case "nav":
+        history.pushState(null, "", value);
+        window.dispatchEvent(new CustomEvent("location-changed"));
+        break;
+      case "more-info":
+        this.dispatchEvent(
+          new CustomEvent("hass-more-info", { bubbles: true, composed: true, detail: { entityId: value } })
+        );
+        break;
+      case "to-cand":
+        s.cand.focus = value;
+        s.cand.selected.add(value);
+        s.tab = "candidates";
+        this._render();
+        this._ensureTab();
+        break;
+      case "cand-unfocus":
+        s.cand.focus = null;
+        s.cand.limit = 0;
+        this._renderContent();
+        break;
       case "verdict":
+        s.cand.focus = null;
         s.cand.verdict = value;
         s.cand.reason = null;
         s.cand.limit = 0;
@@ -959,8 +1108,8 @@ class DatabaseCleanerPanel extends HTMLElement {
       if (btn) btn.disabled = !this._dialogReady();
       return;
     }
-    if (field !== "lts-search" && field !== "cand-search") return;
-    const target = field === "lts-search" ? this._s.lts : this._s.cand;
+    if (field !== "lts-search" && field !== "cand-search" && field !== "iss-search") return;
+    const target = field === "lts-search" ? this._s.lts : field === "iss-search" ? this._s.iss : this._s.cand;
     target.search = e.target.value;
     target.limit = 0;
     clearTimeout(this._searchTimer);
@@ -1034,7 +1183,7 @@ class DatabaseCleanerPanel extends HTMLElement {
   _render() {
     if (!this._hass) return;
     const s = this._s;
-    const tabs = ["overview", "candidates", "statistics", "states", "health", "maintenance"];
+    const tabs = ["overview", "candidates", "issues", "statistics", "states", "health", "maintenance"];
     const running = !!s.jobs?.current;
     const dbPath = s.info?.db_path ? ` · ${esc(s.info.db_path)}` : "";
     this.shadowRoot.innerHTML = `
@@ -1069,6 +1218,7 @@ class DatabaseCleanerPanel extends HTMLElement {
       html = {
         overview: () => this._overview(),
         candidates: () => this._candidates(),
+        issues: () => this._issues(),
         statistics: () => this._statistics(),
         states: () => this._states(),
         health: () => this._health(),
@@ -1215,6 +1365,7 @@ class DatabaseCleanerPanel extends HTMLElement {
   _candItems() {
     const res = this._s.statistics;
     const f = this._s.cand;
+    if (f.focus) return res.items.filter((i) => i.statistic_id === f.focus);
     const q = f.search.trim().toLowerCase();
     return res.items.filter(
       (i) =>
@@ -1266,7 +1417,7 @@ class DatabaseCleanerPanel extends HTMLElement {
 
     // coverage
     const src = res.cleanup.sources || {};
-    const srcKeys = ["energy", "dashboards", "automations", "scripts", "scenes", "groups", "persons", "helpers"];
+    const srcKeys = ["energy", "dashboards", "automations", "scripts", "scenes", "groups", "persons", "helpers", "yaml_files"];
     const coverage = srcKeys
       .map((k) => {
         const v = src[k];
@@ -1378,7 +1529,13 @@ class DatabaseCleanerPanel extends HTMLElement {
         <div class="note">ℹ️ ${this.t("not_checked")}</div>${errors}</div>
       <div class="cats">${cards}</div>
       <div class="card">
-        <div class="note">${VERDICT_ICON[f.verdict]} ${this.t(`v_hint_${f.verdict}`)}</div>
+        ${
+          f.focus
+            ? `<div class="note">🔎 ${this.t("cand_focus")} <b>${esc(f.focus)}</b> <button class="btn small" data-action="cand-unfocus">${this.t(
+                "cand_unfocus"
+              )}</button></div>`
+            : `<div class="note">${VERDICT_ICON[f.verdict]} ${this.t(`v_hint_${f.verdict}`)}</div>`
+        }
         ${reasonChips ? `<div class="controls">${reasonChips}</div>` : ""}
         <div class="controls">
           <input type="search" data-field="cand-search" placeholder="${this.t("search")}" value="${esc(f.search)}">
@@ -1733,6 +1890,111 @@ class DatabaseCleanerPanel extends HTMLElement {
     )}</span><button class="btn" data-action="${action}">${this.t("show_more")}</button></div>`;
   }
 
+
+  // ---------------------------------------------------------------- problems
+  _issueDetail(i) {
+    const d = i.data || {};
+    const parts = [];
+    for (const [k, v] of Object.entries(d)) {
+      if (k === "statistic_id" || v == null || v === "") continue;
+      const shown = /_ts$/.test(k) ? this.date(v, true) : Array.isArray(v) ? v.join(", ") : typeof v === "number" ? this.n(Math.round(v * 1000) / 1000) : v;
+      parts.push(`${esc(k)}: <b>${esc(shown)}</b>`);
+    }
+    return parts.join(" · ");
+  }
+
+  _issues() {
+    const s = this._s;
+    if (s.errors.issues) return this._error(s.errors.issues);
+    if (!s.issues) return this._spinner("issues", this.t("issues_wait"));
+    const res = s.issues;
+    const f = s.iss;
+    const q = f.search.trim().toLowerCase();
+    const SEV = { error: "❌", warning: "⚠️", info: "ℹ️" };
+    const SEV_COLOR = { error: "var(--error-color, #db4437)", warning: "var(--warning-color, #ffa600)", info: "#78909c" };
+    const HA_FIXABLE = new Set(["units_changed", "state_class_removed", "mean_type_changed"]);
+    const GONE = new Set(["no_state", "entity_no_longer_recorded", "lts_stalled"]);
+
+    const list = res.issues.filter(
+      (i) =>
+        (!f.important || i.important) &&
+        (f.source === "all" || i.source === f.source) &&
+        (!f.code || i.code === f.code) &&
+        (!q || [i.statistic_id, i.name].filter(Boolean).some((v) => String(v).toLowerCase().includes(q)))
+    );
+    const limit = this._topN() + f.limit;
+
+    const tiles = res.codes
+      .map((c) => {
+        const sev = res.issues.find((i) => i.code === c.key)?.severity || "info";
+        return `<button class="card cat ${f.code === c.key ? "selected" : ""}" data-action="iss-code" data-value="${c.key}" title="${esc(
+          this.t(`i_fix_${c.key}`)
+        )}">
+          <div class="cat-head"><i class="dot" style="background:${SEV_COLOR[sev]}"></i>${this.t(`i_${c.key}`)}</div>
+          <div class="cat-value">${this.n(c.count)}</div>
+          <div class="kpi-sub">${c.important ? `⚡ ${this.n(c.important)}` : "&nbsp;"}</div></button>`;
+      })
+      .join("");
+
+    const pill = (action, value, label, active, title = "") =>
+      `<button class="pill ${active ? "active" : ""}" data-action="${action}" data-value="${value}" ${
+        title ? `title="${esc(title)}"` : ""
+      }>${label}</button>`;
+
+    const rows = list
+      .slice(0, limit)
+      .map((i) => {
+        const links = [];
+        if (HA_FIXABLE.has(i.code)) links.push(`<button class="btn small" data-action="nav" data-value="/developer-tools/statistics">${this.t("act_ha_stats")}</button>`);
+        if (i.code !== "no_state" && i.statistic_id.includes("."))
+          links.push(`<button class="btn small" data-action="more-info" data-value="${esc(i.statistic_id)}">${this.t("act_entity")}</button>`);
+        if (GONE.has(i.code) && !i.important)
+          links.push(`<button class="btn small" data-action="to-cand" data-value="${esc(i.statistic_id)}">${this.t("act_candidates")}</button>`);
+        const sub = [i.name && i.name !== i.statistic_id ? esc(i.name) : null].filter(Boolean).join("");
+        const tags = [
+          `<span class="tag">${this.t(i.source === "ha" ? "src_ha" : "src_own")}</span>`,
+          i.in_repairs ? `<span class="tag">${this.t("in_repairs")}</span>` : "",
+          i.important ? `<span class="tag" title="${esc(this.t("important_hint"))}">⚡</span>` : "",
+        ].join(" ");
+        return `<tr>
+          <td class="name"><div class="eid">${esc(i.statistic_id)} ${this._refsBadge(i.refs)}</div>
+            <div class="muted small">${sub}</div></td>
+          <td><div><span title="${this.t(`sev_${i.severity}`)}">${SEV[i.severity] || ""}</span> <b>${this.t(`i_${i.code}`)}</b> ${tags}</div>
+            <div class="muted small">${this._issueDetail(i)}</div>
+            <div class="muted small">💡 ${this.t(`i_fix_${i.code}`)}</div></td>
+          <td class="actions">${links.join(" ")}</td>
+        </tr>`;
+      })
+      .join("");
+
+    const errors = (res.sources?.errors || []).length
+      ? `<div class="note warn">⚠️ ${this.t("scan_errors")}: ${esc(res.sources.errors.join("; "))}</div>`
+      : "";
+    const body = list.length
+      ? `<div class="table-wrap"><table>
+          <thead><tr><th>${this.t("g_statistic")}</th><th>${this.t("col_problem")}</th><th></th></tr></thead>
+          <tbody>${rows}</tbody></table></div>${this._more(list.length, limit, "more-iss")}`
+      : `<div class="note">${this.t("issues_none")}</div>`;
+
+    return `
+      <div class="card"><div class="note">ℹ️ ${this.t("issues_intro")}</div>
+        <div class="muted small">${this.n(res.total)} ${this.t("issues_total")} · ${this.n(res.important)} ${this.t(
+      "issues_important"
+    )} · ${this.n(res.sources?.sensors)} sensors · ${this.n(res.sources?.statistics)} ${this.t("statistics_n").toLowerCase()}</div>${errors}</div>
+      ${res.codes.length ? `<div class="cats">${tiles}</div>` : ""}
+      <div class="card">
+        <div class="controls">
+          ${pill("iss-important", "1", this.t("only_important"), f.important, this.t("important_hint"))}
+          ${["all", "ha", "own"].map((v) => pill("iss-source", v, this.t(`src_${v}`), f.source === v)).join("")}
+        </div>
+        <div class="controls">
+          <input type="search" data-field="iss-search" placeholder="${this.t("search")}" value="${esc(f.search)}">
+          <span class="muted small grow">${this.n(list.length)} / ${this.n(res.total)}</span>${this._meta(res)}
+        </div>
+        ${body}
+      </div>`;
+  }
+
   // ---------------------------------------------------------------- states
   _states() {
     const s = this._s;
@@ -2081,6 +2343,8 @@ const STYLE = `
   .sources { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 14px; }
   .src.off { color: var(--dc-muted); }
   .tags { margin-top: 4px; display: flex; flex-wrap: wrap; gap: 4px; }
+  .actions { white-space: nowrap; text-align: right; }
+  .actions .btn { margin-left: 4px; }
   .refs { font-size: 12px; margin-left: 6px; cursor: help; white-space: nowrap; }
   .check-cell { width: 28px; }
   .check-cell input { width: 16px; height: 16px; accent-color: var(--dc-accent); cursor: pointer; }

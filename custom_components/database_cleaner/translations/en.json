@@ -91,6 +91,9 @@
       },
       "probe_latency": {
         "name": "Probe query time"
+      },
+      "statistics_issues": {
+        "name": "Statistics problems"
       }
     }
   }

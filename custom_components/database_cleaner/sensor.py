@@ -20,6 +20,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import DOMAIN, VERSION
 from .coordinator import DatabaseCleanerCoordinator
+from .engine import issues as engine_issues
 
 if TYPE_CHECKING:
     from . import DatabaseCleanerConfigEntry
@@ -39,6 +40,7 @@ def _iso(ts: float | None) -> str | None:
 @dataclass(frozen=True, kw_only=True)
 class DbSensorDescription(SensorEntityDescription):
     value_fn: Callable[[dict[str, Any]], Any]
+    attrs_fn: Callable[[dict[str, Any]], dict[str, Any]] | None = None
 
 
 DB_SENSORS: tuple[DbSensorDescription, ...] = (
@@ -90,6 +92,14 @@ DB_SENSORS: tuple[DbSensorDescription, ...] = (
         value_fn=lambda d: d["lts_rows"],
     ),
     DbSensorDescription(
+        key="statistics_issues",
+        translation_key="statistics_issues",
+        native_unit_of_measurement="issues",
+        icon="mdi:alert-circle-outline",
+        value_fn=lambda d: d["issues"]["problems"],
+        attrs_fn=lambda d: {"total": d["issues"]["total"], **d["issues"]["codes"]},
+    ),
+    DbSensorDescription(
         key="recorder_backlog",
         translation_key="recorder_backlog",
         icon="mdi:tray-full",
@@ -137,6 +147,8 @@ class _Base(CoordinatorEntity[DatabaseCleanerCoordinator], SensorEntity):
 
 class DbSensor(_Base):
     entity_description: DbSensorDescription
+    # Counters per problem code change often and are not worth keeping in history.
+    _unrecorded_attributes = frozenset(engine_issues.ALL_CODES) | {"total"}
 
     def __init__(self, coordinator: DatabaseCleanerCoordinator, description: DbSensorDescription) -> None:
         super().__init__(coordinator, description.key)
@@ -145,6 +157,11 @@ class DbSensor(_Base):
     @property
     def native_value(self) -> Any:
         return self.entity_description.value_fn(self.coordinator.data)
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any] | None:
+        attrs_fn = self.entity_description.attrs_fn
+        return attrs_fn(self.coordinator.data) if attrs_fn else None
 
 
 class ChattySensor(_Base):

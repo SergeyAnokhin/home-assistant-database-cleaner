@@ -12,6 +12,8 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from .const import CONF_SENSOR_TOP_N, CONF_UPDATE_MINUTES, DEFAULT_OPTIONS, DOMAIN
+from .engine import issues as engine_issues
+from .issues import async_collect_ha_issues
 from .registry import async_build_context
 
 if TYPE_CHECKING:
@@ -46,8 +48,17 @@ class DatabaseCleanerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         except sqlite3.Error as err:
             raise UpdateFailed(f"Database query failed: {err}") from err
 
+        # Home Assistant's own findings only: ours need the full statistics scan.
+        ha_issues, _errors = await async_collect_ha_issues(self.hass)
+        issues = engine_issues.merge(ha_issues, [])
+
         lts_rows = self.analyzer.statistics_rows_by_id()
         return {
+            "issues": {
+                "problems": issues["problems"],
+                "total": issues["total"],
+                "codes": {c["key"]: c["count"] for c in issues["codes"]},
+            },
             "chatty": chatty,
             "probe": health["current"],
             "file": health["file"],

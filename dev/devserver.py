@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -25,6 +26,7 @@ import uuid  # noqa: E402
 
 from engine import Analyzer  # noqa: E402
 from engine import backup as engine_backup  # noqa: E402
+from engine import issues as engine_issues  # noqa: E402
 from engine.db import connect  # noqa: E402
 
 from dev.storage_context import load_context  # noqa: E402
@@ -122,6 +124,39 @@ def build_app(db: Path, storage: Path, exclude: Path):
     jobs = FakeJobs()
     size = db.stat().st_size
 
+    def dev_issues(refresh: bool) -> dict:
+        """Preview of the Problems tab: no live states here, so only what the copy can tell.
+
+        Home Assistant's findings come from the repairs registry plus ``no_state`` (statistics of
+        sensors without any state); our own checks are limited to cumulative-sum dips.
+        """
+        stats = analyzer.statistics(ctx, OPTIONS["lts_periods"], refresh=refresh)
+        items = stats["items"]
+        validation: dict[str, list[dict]] = {}
+        repairs: list[str] = []
+        try:
+            registry = json.loads((storage / "repairs.issue_registry").read_text(encoding="utf-8"))
+            for issue in registry["data"]["issues"]:
+                m = re.match(r"^(units_changed|state_class_removed|mean_type_changed)_(.+)$", issue["issue_id"])
+                if issue["domain"] == "sensor" and m:
+                    repairs.append(issue["issue_id"])
+                    validation.setdefault(m[2], []).append({"type": m[1], "data": {"statistic_id": m[2]}})
+        except (OSError, ValueError, KeyError):
+            pass
+        for i in items:
+            if i["source"] == "recorder" and i["statistic_id"].startswith("sensor.") and not i["has_states"]:
+                validation.setdefault(i["statistic_id"], []).append(
+                    {"type": "no_state", "data": {"statistic_id": i["statistic_id"]}}
+                )
+        meters = [i["statistic_id"] for i in items if i["source"] == "recorder" and i["has_sum"]]
+        drops = analyzer.sum_drops(meters, refresh=refresh)
+        own = engine_issues.evaluate(
+            {}, items, unit_rules={}, state_class_rules={}, sum_drops=drops, recorded=ctx.recorded, now=analyzer.now()
+        )
+        merged = engine_issues.merge([*engine_issues.from_validation(validation, repairs), *own], items)
+        return {**merged, "sources": {"sensors": 0, "statistics": len(items), "errors": [
+            "dev preview: no live sensor states, so only part of the checks runs"]}, "age_s": 0}
+
     def preflight(kind: str, repack: bool) -> dict:
         free = engine_backup.free_space(str(db.parent))
         checks = [
@@ -169,6 +204,8 @@ def build_app(db: Path, storage: Path, exclude: Path):
             return analyzer.overview(refresh=bool(msg.get("refresh")))
         if kind == "statistics":
             return analyzer.statistics(ctx, OPTIONS["lts_periods"], refresh=bool(msg.get("refresh")))
+        if kind == "issues":
+            return dev_issues(bool(msg.get("refresh")))
         if kind == "states":
             return analyzer.states(ctx, int(float(msg["window_hours"]) * 3600))
         if kind == "events":

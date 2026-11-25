@@ -10,7 +10,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass, field
 from typing import Any
 
-from . import health, lts, overview, states
+from . import health, issues, lts, overview, states
 from .db import connect
 from .model import Context
 
@@ -43,6 +43,7 @@ class Analyzer:
         self.statistics_ttl_s = statistics_ttl_s
         self._overview = _Cached()
         self._stats = _Cached()
+        self._drops = _Cached()
         self._probes: deque[dict] = deque(maxlen=probe_history)
         self._probes_lock = threading.Lock()
 
@@ -63,7 +64,7 @@ class Analyzer:
         return {**value, "cached": hit, "age_s": round(time.monotonic() - cached.at, 1)}
 
     def invalidate(self) -> None:
-        for c in (self._overview, self._stats):
+        for c in (self._overview, self._stats, self._drops):
             with c.lock:
                 c.value = None
 
@@ -112,6 +113,28 @@ class Analyzer:
         if raw is None:
             return None
         return {i["statistic_id"]: i["rows"] for i in raw["items"]}
+
+    def sum_drops(self, statistic_ids: Sequence[str], *, refresh: bool = False, ttl_s: float = 600) -> dict[str, dict]:
+        """Cumulative-sum dips of the given statistics over the last 365 days (cached)."""
+        key = tuple(sorted(statistic_ids))
+        c = self._drops
+        with c.lock:
+            if not refresh and self._fresh(c, ttl_s, key):
+                return c.value
+            result: dict[str, dict] = {}
+            if key:
+                with self._conn() as conn:
+                    marks = ",".join("?" * len(key))
+                    meta = dict(
+                        conn.execute(
+                            f"SELECT id, statistic_id FROM statistics_meta WHERE has_sum = 1 AND statistic_id IN ({marks})",
+                            key,
+                        ).fetchall()
+                    )
+                    drops = issues.sum_decreases(conn, list(meta), since_ts=self.now() - issues.YEAR)
+                result = {meta[mid]: d for mid, d in drops.items()}
+            c.value, c.key, c.at = result, key, time.monotonic()
+            return result
 
     # ------------------------------------------------------------ states / events
     def states(self, ctx: Context, window_s: int) -> dict:

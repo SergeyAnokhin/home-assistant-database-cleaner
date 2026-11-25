@@ -35,6 +35,7 @@ from .const import (
 from .coordinator import DatabaseCleanerCoordinator
 from .engine import Analyzer
 from .engine.db import sqlite_path_from_url
+from .issues import IssuesCache
 from .jobs import JobManager
 from .usage import UsageCache
 from .websocket_api import async_register_websocket_commands
@@ -53,6 +54,7 @@ class DatabaseCleanerData:
     coordinator: DatabaseCleanerCoordinator
     jobs: JobManager
     usage: UsageCache = field(default_factory=UsageCache)
+    issues: IssuesCache = field(default_factory=IssuesCache)
 
 
 type DatabaseCleanerConfigEntry = ConfigEntry[DatabaseCleanerData]

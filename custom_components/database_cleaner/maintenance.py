@@ -354,6 +354,7 @@ async def run_delete(
         index = await hass.async_add_executor_job(lambda: writer.close(complete=complete))
         data.analyzer.invalidate()
         data.usage.invalidate()
+        data.issues.invalidate()
 
     remaining = await hass.async_add_executor_job(_rows_for, db_path, deleted_ids)
     result: dict[str, Any] = {
@@ -452,5 +453,6 @@ async def run_restore(
         await hass.async_add_executor_job(records.close)
         data.analyzer.invalidate()
         data.usage.invalidate()
+        data.issues.invalidate()
     ctx.log(f"restored {restored} statistics, {rows} rows")
     return {"restored": restored, "rows": rows, "archive": archive_name}

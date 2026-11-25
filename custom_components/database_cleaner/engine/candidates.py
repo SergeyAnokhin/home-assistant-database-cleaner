@@ -2,7 +2,7 @@
 
 Verdicts (first match wins):
   protected  referenced by the Energy dashboard -> never offered for deletion
-  used       referenced by a dashboard, automation, script, scene, group, person or helper
+  used       referenced by a dashboard, automation, script, scene, group, person, helper or YAML file
   safe       entity gone / disabled / excluded / without states, and referenced nowhere
   review     LTS stopped, entity without registry entry, or external statistic
   unused     entity alive and recorded, but referenced nowhere we can see
@@ -16,7 +16,7 @@ import re
 from collections.abc import Iterable, Mapping
 
 VERDICTS = ["safe", "unused", "review", "used", "protected"]
-USE_KINDS = {"dashboard", "automation", "script", "scene", "group", "person", "helper"}
+USE_KINDS = {"dashboard", "automation", "script", "scene", "group", "person", "helper", "yaml"}
 SAFE_CATEGORIES = {"orphan", "excluded", "disabled", "no_states"}
 REVIEW_CATEGORIES = {"stopped", "no_registry", "external"}
 

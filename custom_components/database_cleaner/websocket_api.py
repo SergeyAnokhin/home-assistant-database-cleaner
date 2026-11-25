@@ -1,4 +1,4 @@
-"""WebSocket commands used by the panel. All of them are admin-only and read-only."""
+"""WebSocket commands used by the panel. All of them are admin-only; only the maintenance ones change anything."""
 
 from __future__ import annotations
 
@@ -33,6 +33,7 @@ def async_register_websocket_commands(hass: HomeAssistant) -> None:
         ws_events,
         ws_health,
         ws_quick_check,
+        ws_issues,
         ws_maintenance,
         ws_preflight,
         ws_job_start,
@@ -185,6 +186,27 @@ async def ws_health(hass: HomeAssistant, connection: websocket_api.ActiveConnect
 @websocket_api.async_response
 async def ws_quick_check(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
     await _run(hass, connection, msg, lambda d, _: d.analyzer.quick_check)
+
+
+@websocket_api.require_admin
+@websocket_api.websocket_command(
+    {vol.Required("type"): f"{DOMAIN}/issues", vol.Optional("refresh", default=False): bool}
+)
+@websocket_api.async_response
+async def ws_issues(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
+    loaded = _loaded(hass)
+    if loaded is None:
+        connection.send_error(msg["id"], "not_loaded", "Database Cleaner is not set up")
+        return
+    data, options = loaded
+    try:
+        result = await data.issues.async_get(
+            hass, data, [int(p) for p in options[CONF_LTS_PERIODS]], refresh=msg["refresh"]
+        )
+    except sqlite3.Error as err:
+        connection.send_error(msg["id"], "db_error", str(err))
+        return
+    connection.send_result(msg["id"], result)
 
 
 # ---------------------------------------------------------------- maintenance (phases 3-4)

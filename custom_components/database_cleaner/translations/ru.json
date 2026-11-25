@@ -91,6 +91,9 @@
       },
       "probe_latency": {
         "name": "Время пробного запроса"
+      },
+      "statistics_issues": {
+        "name": "Проблемы статистики"
       }
     }
   }
