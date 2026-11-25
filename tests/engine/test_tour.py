@@ -54,3 +54,40 @@ def test_tour_prepare_keys_are_handled_by_panel() -> None:
     keys = set(re.findall(r'\n    prepare: "([^"]+)"', TOUR))
     for key in keys:
         assert f'key === "{key}"' in PANEL, f"panel.js tourPrepare() does not handle {key!r}"
+
+
+# --- MDI icons: every icon name used by the tour or the panel must exist in the MDI dictionary ---------
+def _mdi_keys() -> set[str]:
+    block = PANEL.split("const MDI = {", 1)[1].split("\n};", 1)[0]
+    return set(re.findall(r"^  (\w+):", block, flags=re.M))
+
+
+def test_tour_icons_exist_in_panel_dictionary() -> None:
+    used = set(re.findall(r'data-mdi="([a-z_]+)"', TOUR))
+    assert used, "the tour should use MDI icons"
+    missing = sorted(used - _mdi_keys())
+    assert not missing, f'tour.js uses icons that are not in the MDI dictionary of panel.js: {missing}'
+
+
+def test_panel_icons_exist_in_dictionary() -> None:
+    literal = set(re.findall(r'\bic\("([a-z_]+)"', PANEL))
+    literal |= set(re.findall(r'\bbadge\("([a-z_]+)"', PANEL))
+    literal |= set(re.findall(r'\blamp\("([a-z_]+)"', PANEL))
+    literal |= set(re.findall(r'\bicon: "([a-z_]+)"', PANEL))
+    # values of the lookup tables that feed ic()/badge() dynamically
+    for table in ("REF_ICON", "REASON_ICON", "GROUP_ICON"):
+        body = PANEL.split(f"const {table} = {{", 1)[1].split("};", 1)[0]
+        literal |= set(re.findall(r':\s*"([a-z_]+)"', body))
+    # keys that are used as icon names themselves: tabs, verdicts, categories, severities
+    for name in ("VERDICT_ORDER", "CATEGORY_ORDER"):
+        body = PANEL.split(f"const {name} = [", 1)[1].split("];", 1)[0]
+        literal |= set(re.findall(r'"([a-z_]+)"', body))
+    literal |= TABS | {"error", "warning", "info"}
+    missing = sorted(literal - _mdi_keys())
+    assert not missing, f"panel.js uses icons that are not in the MDI dictionary: {missing}"
+
+
+def test_mdi_paths_look_like_svg_paths() -> None:
+    block = PANEL.split("const MDI = {", 1)[1].split("\n};", 1)[0]
+    paths = re.findall(r'^\s+"(M[^"]+)",$', block, flags=re.M)
+    assert len(paths) == len(_mdi_keys()), "every MDI key needs exactly one SVG path"
