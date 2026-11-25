@@ -6,7 +6,9 @@
  * panel follows dark / light mode automatically.
  */
 
-const VERSION = "0.4.0";
+import { buildGuide } from "./guides.js";
+
+const VERSION = "0.5.0";
 const DOMAIN = "database_cleaner";
 const TOUR_SEEN_KEY = `${DOMAIN}_tour_seen`;
 
@@ -16,6 +18,12 @@ const TOUR_SEEN_KEY = `${DOMAIN}_tour_seen`;
  * the MDI icon name. Use ic(name) / badge(name, color) to draw them.
  */
 const MDI = {
+  download: // download
+    "M5,20H19V18H5M19,9H15V3H9V9H5L12,16L19,9Z",
+  terminal: // console
+    "M20,19V7H4V19H20M20,3A2,2 0 0,1 22,5V19A2,2 0 0,1 20,21H4A2,2 0 0,1 2,19V5C2,3.89 2.9,3 4,3H20M13,17V15H18V17H13M9.58,13L5.57,9H8.4L11.7,12.3C12.09,12.69 12.09,13.33 11.7,13.72L8.42,17H5.59L9.58,13Z",
+  stop: // stop
+    "M18,18H6V6H18V18Z",
   help: // help-circle
     "M15.07,11.25L14.17,12.17C13.45,12.89 13,13.5 13,15H11V14.5C11,13.39 11.45,12.39 12.17,11.67L13.41,10.41C13.78,10.05 14,9.55 14,9C14,7.89 13.1,7 12,7A2,2 0 0,0 10,9H8A4,4 0 0,1 12,5A4,4 0 0,1 16,9C16,9.88 15.64,10.67 15.07,11.25M13,19H11V17H13M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12C22,6.47 17.5,2 12,2Z",
   menu: // menu
@@ -346,7 +354,9 @@ const I18N = {
     commit_note: "The recorder writes in batches every {s} s, so the most recent seconds are not visible yet.",
     tab_candidates: "Candidates",
     tab_issues: "Problems",
-    issues_intro: "What Home Assistant reports about statistics (the same as Developer tools → Statistics) plus our own checks. This tab only shows problems; nothing is changed from here.",
+    issues_intro: "What Home Assistant reports about statistics (the same as Developer tools → Statistics) plus our own checks. Press the wrench on a row for a step-by-step guide with ready YAML for that very entity; statistics you do not need can be selected and deleted here.",
+    guide_btn: "How to fix: step by step",
+    guide_delete_hint: "Do not need these statistics? Tick the row and press “Delete selected”: a backup and an undo archive are made first.",
     only_important: "only important",
     important_hint: "Entities that are used in Energy, dashboards, automations, scripts or YAML",
     src_all: "all sources",
@@ -448,7 +458,6 @@ const I18N = {
     dlg_delete_title: "Delete long-term statistics",
     dlg_summary: "{n} statistics · {rows} rows · ≈ {size}",
     dlg_live_warn: "{n} of them belong to live sensors: their statistics will start growing again. Add them to recorder exclude (YAML button) to stop that.",
-    dlg_backup: "A verified database backup is made first (unless one is younger than {h} h), and the rows are saved to an undo archive.",
     dlg_repack: "Compact the database afterwards (VACUUM)",
     dlg_repack_note: "Frees the disk space. The recorder pauses writing for the duration (events wait in memory).",
     dlg_type: "Type {word} to confirm",
@@ -489,7 +498,7 @@ const I18N = {
     verified: "verified",
     delete: "Delete",
     confirm_delete_backup: "Delete backup {name}? This cannot be undone.",
-    restore_full: "Full restore of a backup file needs Home Assistant Core to be stopped: ha core stop → rename home-assistant_v2.db (and -wal, -shm) → copy the backup in its place as home-assistant_v2.db → ha core start.",
+    restore_full: "Restoring a whole backup file needs Home Assistant to be stopped. Press the terminal button on a backup to get the exact commands for your paths.",
     archives: "Undo archives",
     no_archives: "No undo archives.",
     restore: "Restore",
@@ -522,7 +531,7 @@ const I18N = {
     next_issues_sub: "What Home Assistant and this panel report",
     next_disk_low: "Low disk space",
     next_disk_low_sub: "A backup may not fit: free some space first",
-    next_free_pages: "{pct} of the file is empty",
+    next_free_pages: "{pct} of the file is empty (≈ {size})",
     next_free_pages_sub: "Compact the database (VACUUM) in Maintenance",
     next_backup: "Make a backup",
     next_backup_sub: "Before any cleaning: Maintenance tab",
@@ -560,6 +569,68 @@ const I18N = {
     theme_to_light: "Switch to the light theme",
     theme_to_dark: "Switch to the dark theme",
     lang_switch: "Switch language",
+    open_card: "Open the entity card",
+    copy_name: "Copy the name",
+    live_title: "Live: what is being written right now",
+    live_start: "Start",
+    live_stop: "Stop",
+    live_idle: "Off. The database is not queried until you press the button.",
+    live_hint: "The recorder writes in batches (about every {s} s), so the numbers move in steps.",
+    live_per_min: "per min",
+    live_queue: "Recorder queue",
+    live_queue_sub: "tasks waiting to be written",
+    live_chart: "Rows added per poll (every 2 s)",
+    live_who: "Who is writing (last minute)",
+    live_other: "others",
+    live_total: "added since start",
+    live_waiting: "Waiting for the first data…",
+    live_rec_off: "The recorder is not recording",
+    live_file: "File + WAL",
+    live_rows: "rows",
+    restore_how: "Commands to restore this backup in a terminal",
+    restore_title: "Restore this backup from a terminal",
+    restore_env_haos: "HA OS / Supervised",
+    restore_env_docker: "Docker",
+    restore_env_core: "Core (venv)",
+    restore_note: "Run the commands one by one in the Terminal / SSH add-on (or on the host). Paths are as Home Assistant sees them.",
+    restore_docker_note: "Docker: use the host paths that are mapped to /config and to the backup folder, and your container name.",
+    restore_lose: "Everything recorded after {date} will be missing. The old database stays next to the new one (…before-restore) until you delete it.",
+    restore_copy: "Copy commands",
+    rc_stop: "1. stop Home Assistant",
+    rc_aside: "2. keep the current database aside",
+    rc_wal: "3. remove the old -wal / -shm (they must not stay next to the restored file)",
+    rc_copy: "4. put the backup in its place",
+    rc_check: "   optional: the checksum must be",
+    rc_start: "5. start Home Assistant",
+    download: "Save to this computer",
+    download_started: "Download started",
+    confirm_delete_archive: "Delete the undo archive {name}? The rows in it can no longer be restored.",
+    archive_info: "What is in this archive",
+    arc_title: "Undo archive",
+    arc_hint: "Statistics that were deleted by one job. Untick the ones you do not want back.",
+    arc_select_all: "Select all",
+    arc_select_none: "Clear",
+    arc_selected: "Selected",
+    arc_restore_sel: "Restore selected",
+    dlg_backup_opt: "Make a database backup first",
+    dlg_backup_note: "A backup younger than {h} h is reused. The deleted rows go to an undo archive either way.",
+    dlg_backup_off: "Without a backup only the undo archive protects the deleted rows. If the database file itself gets damaged, there is nothing to go back to.",
+    dlg_backup_off_repack: "Without a backup there is nothing to go back to if the database file gets damaged during VACUUM.",
+    dlg_last_backup: "Last backup: {ago}",
+    dlg_no_backup: "There is no backup yet.",
+    result_freed: "data released ≈ {size} (empty pages inside the file)",
+    result_file: "file {before} → {after} ({delta})",
+    result_file_same: "file size unchanged ({size}): compact the database to get the space back",
+    result_no_backup: "no backup",
+    tips_btn: "How to quiet it",
+    tips_title: "How to make {name} quieter",
+    tips_for: "Advice for",
+    tips_general: "For any entity",
+    tips_docs: "Documentation",
+    tips_note: "The numbers come from your database; the advice is general. Check it against the documentation of your device.",
+    copy_snippet: "Copy",
+    col_24h: "24 h",
+    spark_title: "Last 24 h, rows per hour (peak {max}). Even bars = regular writing, a few tall bars = bursts.",
   },
   ru: {
     title: "Database Cleaner",
@@ -698,7 +769,9 @@ const I18N = {
     commit_note: "Recorder пишет пачками раз в {s} с, поэтому последние секунды ещё не видны.",
     tab_candidates: "Кандидаты",
     tab_issues: "Проблемы",
-    issues_intro: "Что Home Assistant сообщает о статистике (то же, что «Инструменты разработчика → Статистика») плюс наши проверки. Вкладка только показывает проблемы — отсюда ничего не меняется.",
+    issues_intro: "Что Home Assistant сообщает о статистике (то же, что «Инструменты разработчика → Статистика») плюс наши проверки. Гаечный ключ в строке открывает пошаговую памятку с готовым YAML именно для этой сущности; ненужную статистику можно отметить и удалить прямо здесь.",
+    guide_btn: "Как исправить: пошагово",
+    guide_delete_hint: "Статистика не нужна? Отметьте строку и нажмите «Удалить выбранное»: перед этим делается бэкап и архив отмены.",
     only_important: "только важные",
     important_hint: "Сущности, которые используются в Энергии, дашбордах, автоматизациях, скриптах или YAML",
     src_all: "все источники",
@@ -800,7 +873,6 @@ const I18N = {
     dlg_delete_title: "Удаление долговременной статистики",
     dlg_summary: "{n} статистик · {rows} строк · ≈ {size}",
     dlg_live_warn: "{n} из них — живые сенсоры: их статистика начнёт копиться заново. Чтобы этого не было, добавьте их в recorder exclude (кнопка YAML).",
-    dlg_backup: "Сначала делается проверенный бэкап базы (если нет свежее {h} ч), а удаляемые строки сохраняются в архив отмены.",
     dlg_repack: "После удаления сжать базу (VACUUM)",
     dlg_repack_note: "Освобождает место на диске. На это время recorder приостанавливает запись (события ждут в памяти).",
     dlg_type: "Для подтверждения введите {word}",
@@ -841,7 +913,7 @@ const I18N = {
     verified: "проверен",
     delete: "Удалить",
     confirm_delete_backup: "Удалить бэкап {name}? Это необратимо.",
-    restore_full: "Полное восстановление файла требует остановить Core: ha core stop → переименовать home-assistant_v2.db (и -wal, -shm) → положить бэкап на его место под именем home-assistant_v2.db → ha core start.",
+    restore_full: "Чтобы восстановить файл целиком, Home Assistant нужно остановить. Нажмите кнопку «терминал» у бэкапа — покажем точные команды с вашими путями.",
     archives: "Архивы отмены",
     no_archives: "Архивов отмены нет.",
     restore: "Восстановить",
@@ -874,7 +946,7 @@ const I18N = {
     next_issues_sub: "Что сообщают Home Assistant и эта панель",
     next_disk_low: "Мало места на диске",
     next_disk_low_sub: "Бэкап может не поместиться: сначала освободите место",
-    next_free_pages: "{pct} файла пусто",
+    next_free_pages: "{pct} файла пусто (≈ {size})",
     next_free_pages_sub: "Сожмите базу (VACUUM) на вкладке «Обслуживание»",
     next_backup: "Сделайте бэкап",
     next_backup_sub: "Перед любой чисткой: вкладка «Обслуживание»",
@@ -912,7 +984,241 @@ const I18N = {
     theme_to_light: "Переключить на светлую тему",
     theme_to_dark: "Переключить на тёмную тему",
     lang_switch: "Сменить язык",
+    open_card: "Открыть карточку сущности",
+    copy_name: "Скопировать имя",
+    live_title: "В реальном времени: что пишется в базу прямо сейчас",
+    live_start: "Запустить",
+    live_stop: "Остановить",
+    live_idle: "Выключено. Пока вы не нажали кнопку, база не опрашивается.",
+    live_hint: "Recorder пишет пачками (примерно раз в {s} с), поэтому числа меняются шагами.",
+    live_per_min: "в мин",
+    live_queue: "Очередь recorder",
+    live_queue_sub: "задач ждут записи",
+    live_chart: "Строк за опрос (раз в 2 с)",
+    live_who: "Кто пишет (последняя минута)",
+    live_other: "остальные",
+    live_total: "добавлено с запуска",
+    live_waiting: "Ждём первые данные…",
+    live_rec_off: "Recorder сейчас не записывает",
+    live_file: "Файл + WAL",
+    live_rows: "строк",
+    restore_how: "Команды для восстановления этого бэкапа в терминале",
+    restore_title: "Восстановление этого бэкапа через терминал",
+    restore_env_haos: "HA OS / Supervised",
+    restore_env_docker: "Docker",
+    restore_env_core: "Core (venv)",
+    restore_note: "Выполняйте команды по одной в дополнении Terminal / SSH (или на хосте). Пути — так, как их видит Home Assistant.",
+    restore_docker_note: "Docker: подставьте пути хоста, к которым примонтированы /config и папка бэкапов, и имя своего контейнера.",
+    restore_lose: "Всё, что записано после {date}, пропадёт. Старая база останется рядом (…before-restore), пока вы её не удалите.",
+    restore_copy: "Скопировать команды",
+    rc_stop: "1. остановить Home Assistant",
+    rc_aside: "2. убрать текущую базу в сторону",
+    rc_wal: "3. удалить старые -wal / -shm (они не должны лежать рядом с восстановленным файлом)",
+    rc_copy: "4. положить бэкап на место базы",
+    rc_check: "   по желанию: контрольная сумма должна быть",
+    rc_start: "5. запустить Home Assistant",
+    download: "Сохранить на компьютер",
+    download_started: "Скачивание началось",
+    confirm_delete_archive: "Удалить архив отмены {name}? Строки из него будет уже не вернуть.",
+    archive_info: "Что в этом архиве",
+    arc_title: "Архив отмены",
+    arc_hint: "Статистики, удалённые одним заданием. Снимите галочки с тех, что возвращать не нужно.",
+    arc_select_all: "Выбрать все",
+    arc_select_none: "Снять выбор",
+    arc_selected: "Выбрано",
+    arc_restore_sel: "Восстановить выбранное",
+    dlg_backup_opt: "Сначала сделать бэкап базы",
+    dlg_backup_note: "Если есть бэкап свежее {h} ч, он используется. Удаляемые строки в любом случае сохраняются в архив отмены.",
+    dlg_backup_off: "Без бэкапа удалённые строки защищает только архив отмены. Если пострадает сам файл базы, вернуться будет не к чему.",
+    dlg_backup_off_repack: "Без бэкапа вернуться будет не к чему, если файл базы пострадает во время VACUUM.",
+    dlg_last_backup: "Последний бэкап: {ago}",
+    dlg_no_backup: "Бэкапов ещё нет.",
+    result_freed: "освобождено данных ≈ {size} (пустые страницы внутри файла)",
+    result_file: "файл {before} → {after} ({delta})",
+    result_file_same: "размер файла не изменился ({size}): чтобы вернуть место, сожмите базу",
+    result_no_backup: "без бэкапа",
+    tips_btn: "Как унять",
+    tips_title: "Как снизить частоту записи: {name}",
+    tips_for: "Советы для",
+    tips_general: "Для любой сущности",
+    tips_docs: "Документация",
+    tips_note: "Числа взяты из вашей базы, а советы общие. Сверяйтесь с документацией своего устройства.",
+    copy_snippet: "Копировать",
+    col_24h: "24 ч",
+    spark_title: "Последние 24 ч, строк в час (пик {max}). Ровные столбики — регулярная запись, несколько высоких — всплески.",
   },
+};
+
+// ------------------------------------------------------------------ advice for chatty entities
+// Keyed by the integration (or `hint` for Zigbee2MQTT). Texts: `code` is rendered as code; {entity} is
+// replaced by the entity id. Gathered from the projects' own documentation; check it against your device.
+const ADVICE = {
+  tasmota: {
+    icon: "sensor",
+    name: "Tasmota",
+    docs: "https://tasmota.github.io/docs/Commands/",
+    tips: {
+      ru: [
+        "Реже слать телеметрию: в консоли устройства `TelePeriod 600` (секунды; по умолчанию 300, в обычной прошивке минимум 10).",
+        "Меньше знаков после запятой — меньше «новых» значений: `TempRes 0`, `HumRes 0`, `WattRes 0`, `EnergyRes 1` (Res = число десятичных знаков).",
+        "Состояния реле приходят отдельными сообщениями, а не телеметрией: `TelePeriod` на них не влияет.",
+      ],
+      en: [
+        "Send telemetry less often: in the device console `TelePeriod 600` (seconds; default 300, stock firmware allows 10 at least).",
+        "Fewer decimals means fewer distinct values: `TempRes 0`, `HumRes 0`, `WattRes 0`, `EnergyRes 1` (Res = number of decimals).",
+        "Relay states are sent as separate messages, not as telemetry: `TelePeriod` does not affect them.",
+      ],
+    },
+    code: "TelePeriod 600\nTempRes 0\nWattRes 0",
+  },
+  zigbee2mqtt: {
+    icon: "sensor",
+    name: "Zigbee2MQTT",
+    docs: "https://www.zigbee2mqtt.io/guide/configuration/devices-groups.html",
+    tips: {
+      ru: [
+        "Интерфейс Zigbee2MQTT → устройство → вкладка Reporting: увеличьте Max interval и Reportable change (например, температура: изменение 0.5 °C, максимум 600 с). Спящие датчики принимают настройку после пробуждения кнопкой.",
+        "Округление в настройках устройства: `temperature_precision: 1`, `humidity_precision: 0` (также `power_precision`, `energy_precision`).",
+        "`debounce: 1` склеивает быстрые подряд сообщения в одно.",
+        "Сущности linkquality и подобные диагностические лучше отключить в HA.",
+      ],
+      en: [
+        "Zigbee2MQTT frontend → the device → Reporting tab: raise the Max interval and the Reportable change (e.g. temperature: change 0.5 °C, max 600 s). Sleepy sensors take the setting after a wake-up button press.",
+        "Rounding in the device settings: `temperature_precision: 1`, `humidity_precision: 0` (also `power_precision`, `energy_precision`).",
+        "`debounce: 1` merges quick consecutive messages into one.",
+        "Turn off diagnostic entities such as linkquality in Home Assistant.",
+      ],
+    },
+    code: "devices:\n  '0x00158d0001234567':\n    debounce: 1\n    temperature_precision: 1\n    humidity_precision: 0",
+  },
+  zha: {
+    icon: "sensor",
+    name: "ZHA (Zigbee)",
+    docs: "https://github.com/mdeweerd/zha-toolkit",
+    tips: {
+      ru: [
+        "В самом ZHA нет настройки интервала отчётов. Используйте zha-toolkit (HACS): служба `zha_toolkit.conf_report` задаёт min_interval, max_interval и reportable_change.",
+        "Значения ниже ~20 секунд многие устройства всё равно игнорируют. Проверьте имена параметров в документации zha-toolkit.",
+        "RSSI/LQI отключены по умолчанию — не включайте их.",
+      ],
+      en: [
+        "ZHA itself has no setting for the reporting interval. Use zha-toolkit (HACS): the `zha_toolkit.conf_report` service sets min_interval, max_interval and reportable_change.",
+        "Many devices ignore values below ~20 seconds anyway. Check the parameter names in the zha-toolkit documentation.",
+        "RSSI/LQI are disabled by default — leave them off.",
+      ],
+    },
+    code: "action: zha_toolkit.conf_report\ndata:\n  ieee: \"00:15:8d:00:01:23:45:67\"\n  endpoint: 1\n  cluster: 0x0402\n  attribute: 0x0000\n  min_interval: 30\n  max_interval: 600\n  reportable_change: 50",
+  },
+  esphome: {
+    icon: "sensor",
+    name: "ESPHome",
+    docs: "https://esphome.io/components/sensor/#sensor-filters",
+    tips: {
+      ru: [
+        "В YAML устройства добавьте фильтры сенсору: `throttle_average` отправляет одно усреднённое значение за период, `delta` — только при заметном изменении, `heartbeat` — периодический «пульс».",
+        "Для опрашиваемых датчиков увеличьте `update_interval`. Wi-Fi сигнал, uptime и подобное достаточно раз в 5 минут.",
+      ],
+      en: [
+        "Add filters to the sensor in the device YAML: `throttle_average` sends one averaged value per period, `delta` only a noticeable change, `heartbeat` a periodic pulse.",
+        "For polled sensors raise `update_interval`. Wi-Fi signal, uptime and similar are fine every 5 minutes.",
+      ],
+    },
+    code: "sensor:\n  - platform: ...\n    update_interval: 60s\n    filters:\n      - throttle_average: 60s\n      - delta: 0.5",
+  },
+  shelly: {
+    icon: "sensor",
+    name: "Shelly",
+    docs: "https://www.home-assistant.io/integrations/filter/",
+    tips: {
+      ru: [
+        "Shelly сами присылают данные при изменении — интервал в Home Assistant не настраивается.",
+        "У батарейных H&T порог отправки по температуре и влажности задаётся в веб-интерфейсе устройства: увеличьте его.",
+        "Для мощности: сделайте Filter-сенсор с `time_throttle` и используйте его в панелях, а исходный исключите из recorder.",
+      ],
+      en: [
+        "Shelly devices push data on change — the interval cannot be set in Home Assistant.",
+        "For battery H&T sensors the temperature / humidity reporting threshold is set in the device web UI: raise it.",
+        "For power: create a Filter sensor with `time_throttle`, use it on dashboards and exclude the original from the recorder.",
+      ],
+    },
+    code: "sensor:\n  - platform: filter\n    name: \"{entity} (1 min)\"\n    entity_id: {entity}\n    filters:\n      - filter: time_throttle\n        window_size: \"00:01\"",
+  },
+  zwave_js: {
+    icon: "sensor",
+    name: "Z-Wave JS",
+    docs: "https://www.home-assistant.io/integrations/zwave_js/",
+    tips: {
+      ru: [
+        "Устройство → «Настроить» (Configure): параметры порога изменения мощности/энергии (в % или Вт) и интервала отчёта. Номера параметров — в руководстве устройства или в Z-Wave JS Config DB.",
+        "То же можно сделать службой `zwave_js.set_config_parameter`.",
+      ],
+      en: [
+        "Device → Configure: the power / energy change threshold (in % or W) and the report interval parameters. Parameter numbers are in the device manual or the Z-Wave JS Config DB.",
+        "The same can be done with the `zwave_js.set_config_parameter` service.",
+      ],
+    },
+  },
+  mqtt: {
+    icon: "sensor",
+    name: "MQTT",
+    docs: "https://www.home-assistant.io/integrations/filter/",
+    tips: {
+      ru: [
+        "Снижайте частоту у источника: в настройках устройства, прошивки или скрипта, который публикует сообщения. У MQTT-сущности в Home Assistant нет «ограничителя».",
+        "Если источник не настроить, сделайте Filter-сенсор с `time_throttle` для панелей, а исходную сущность исключите из recorder.",
+      ],
+      en: [
+        "Lower the rate at the source: in the device, firmware or script that publishes the messages. An MQTT entity in Home Assistant has no throttle of its own.",
+        "If the source cannot be changed, make a Filter sensor with `time_throttle` for dashboards and exclude the original from the recorder.",
+      ],
+    },
+  },
+  template: {
+    icon: "sensor",
+    name: "Template",
+    docs: "https://www.home-assistant.io/integrations/template/",
+    tips: {
+      ru: [
+        "Шаблонный сенсор пересчитывается при каждом изменении источников. Округляйте результат (`| round(0)`) — тогда значение меняется реже.",
+        "Либо используйте шаблон с триггером `time_pattern`, чтобы он обновлялся раз в минуту.",
+      ],
+      en: [
+        "A template sensor recalculates on every change of its sources. Round the result (`| round(0)`) so that it changes less often.",
+        "Or use a trigger-based template with `time_pattern` so that it updates once a minute.",
+      ],
+    },
+  },
+  other: {
+    icon: "sensor",
+    name: "",
+    docs: "https://www.home-assistant.io/integrations/recorder/",
+    tips: {
+      ru: [
+        "Найдите в настройках интеграции интервал опроса или порог отправки. Для интеграций с опросом: Настройки → Устройства и службы → интеграция → ⋮ → Системные параметры → «Включить опрос» (выключите и обновляйте сущность автоматизацией `homeassistant.update_entity` раз в N минут).",
+        "Проверьте документацию интеграции: у многих есть собственный параметр интервала.",
+      ],
+      en: [
+        "Look for a polling interval or a reporting threshold in the integration options. For polling integrations: Settings → Devices & services → the integration → ⋮ → System options → “Enable polling for updates” (turn it off and refresh the entity with a `homeassistant.update_entity` automation every N minutes).",
+        "Check the integration documentation: many have their own interval option.",
+      ],
+    },
+  },
+};
+
+const ADVICE_GENERAL = {
+  tips: {
+    ru: [
+      "Исключить из recorder: сущность перестанет писаться (уже записанное останется до очистки).",
+      "Если это диагностика (RSSI, uptime, linkquality, last seen) — отключите сущность: Настройки → Устройства и службы → Сущности → шестерёнка → «Включено» выкл.",
+      "Удалить уже накопленную историю можно службой `recorder.purge_entities` (осторожно: стирает состояния сущности).",
+    ],
+    en: [
+      "Exclude it from the recorder: the entity stops being written (what is already recorded stays until purged).",
+      "If it is diagnostics (RSSI, uptime, linkquality, last seen) — disable the entity: Settings → Devices & services → Entities → gear → turn “Enabled” off.",
+      "Already collected history can be removed with the `recorder.purge_entities` service (careful: it erases the entity's states).",
+    ],
+  },
+  code: "recorder:\n  exclude:\n    entities:\n      - {entity}",
 };
 
 const CATEGORY_ORDER = [
@@ -1087,16 +1393,17 @@ function stackbar(segs) {
   return `<div class="stack">${bar}</div><div class="legend">${legend}</div>`;
 }
 
-/** Horizontal bars: rows {label, sub, value, text, color}. */
+/** Horizontal bars: rows {label, labelHtml?, sub, value, text, color, spark?}. */
 function hbars(rows, color = ACCENT) {
   const max = Math.max(1, ...rows.map((r) => r.value));
-  return `<div class="hbars">${rows
+  const sp = rows.some((r) => r.spark);
+  return `<div class="hbars ${sp ? "sp" : ""}">${rows
     .map(
-      (r) => `<div class="hb"><div class="hb-l" title="${esc(r.label)}">${esc(r.label)}${
+      (r) => `<div class="hb"><div class="hb-l" title="${esc(r.label)}">${r.labelHtml ?? esc(r.label)}${
         r.sub ? `<span class="muted small">${esc(r.sub)}</span>` : ""
-      }</div><div class="hb-t"><span style="width:${r.value ? Math.max(1.5, (100 * r.value) / max) : 0}%;background:${
-        r.color || color
-      }"></span></div><b class="hb-v">${esc(r.text)}</b></div>`
+      }</div>${sp ? `<div class="hb-s">${r.spark || ""}</div>` : ""}<div class="hb-t"><span style="width:${
+        r.value ? Math.max(1.5, (100 * r.value) / max) : 0
+      }%;background:${r.color || color}"></span></div><b class="hb-v">${esc(r.text)}</b></div>`
     )
     .join("")}</div>`;
 }
@@ -1150,6 +1457,36 @@ function stepper(steps) {
     .join("")}</ol>`;
 }
 
+const LIVE_SAMPLES = 60;
+const LIVE_COLORS = [ACCENT, "#ffa726", "#66bb6a", "#ab47bc", "#ef5350", "#78909c"];
+
+/** 24 tiny bars, oldest hour first: "is it regular?" at a glance. No axes; the tooltip has the numbers. */
+function miniBars(values, title = "") {
+  if (!values || !values.length) return '<span class="mini24 none"></span>';
+  const max = Math.max(1, ...values);
+  const w = 2;
+  const gap = 0.6;
+  const h = 16;
+  const bars = values
+    .map((v, i) => {
+      const bh = v ? Math.max(1.5, (v / max) * (h - 1)) : 0.7;
+      return `<rect x="${(i * (w + gap)).toFixed(1)}" y="${(h - bh).toFixed(1)}" width="${w}" height="${bh.toFixed(
+        1
+      )}" rx="0.5" class="${v ? "on" : "off"}"/>`;
+    })
+    .join("");
+  const width = values.length * (w + gap) - gap;
+  return `<svg class="mini24" viewBox="0 0 ${width.toFixed(1)} ${h}" preserveAspectRatio="none" role="img"><title>${esc(
+    title
+  )}</title>${bars}</svg>`;
+}
+
+/** Icon-only button with a tooltip: for the obvious actions (delete, copy, download…). */
+const iconBtn = (action, icon, title, { value = "", extra = "", cls = "", disabled = false } = {}) =>
+  `<button class="ibtn ${cls}" data-action="${action}" data-value="${esc(value)}" ${extra} title="${esc(title)}" aria-label="${esc(
+    title
+  )}" ${disabled ? "disabled" : ""}>${ic(icon)}</button>`;
+
 class DatabaseCleanerPanel extends HTMLElement {
   constructor() {
     super();
@@ -1166,14 +1503,17 @@ class DatabaseCleanerPanel extends HTMLElement {
       loading: {},
       errors: {},
       lts: { period: "all", groupBy: "statistic", category: null, diagnostic: false, age: null, search: "", limit: 0, sort: "rows" },
-      st: { window: null, groupBy: "entity", limit: 0, sort: "rows" },
+      st: { window: null, groupBy: "entity", limit: 0, sort: "rows", tips: null },
       cand: { verdict: "safe", reason: null, search: "", limit: 0, selected: new Set(), yaml: false, toast: "", focus: null },
       issues: null,
-      iss: { source: "all", important: false, code: null, search: "", limit: 0 },
+      iss: { source: "all", important: false, code: null, search: "", limit: 0, selected: new Set(), guide: null },
       maintenance: null,
       jobs: null,
       dialog: null,
       notice: "",
+      restoreOpen: null,
+      restoreEnv: "haos",
+      live: { on: false, busy: false, cursor: null, samples: [], prevT: 0, total: { states: 0, events: 0 }, size0: null, last: null, error: "", flashed: 0 },
     };
     this._started = false;
     this.shadowRoot.addEventListener("click", (e) => this._onClick(e));
@@ -1258,6 +1598,7 @@ class DatabaseCleanerPanel extends HTMLElement {
   }
 
   disconnectedCallback() {
+    this._liveStop();
     clearInterval(this._poll);
     this._poll = null;
     this._tour?.close();
@@ -1392,7 +1733,11 @@ class DatabaseCleanerPanel extends HTMLElement {
     s.health = null;
     s.cand.selected.clear();
     s.cand.yaml = false;
+    s.issues = null;
+    s.iss.selected.clear();
+    s.iss.guide = null;
     this._load("maintenance", "maintenance");
+    this._ensureTab(); // the tab the user is looking at must not stay on a spinner
   }
 
   async _preflight() {
@@ -1402,7 +1747,11 @@ class DatabaseCleanerPanel extends HTMLElement {
     d.error = "";
     this._renderContent();
     try {
-      const pre = await this._ws("preflight", { kind: d.kind, repack: d.kind === "delete" ? d.repack : false });
+      const pre = await this._ws("preflight", {
+        kind: d.kind,
+        repack: d.kind === "delete" ? d.repack : false,
+        backup: d.backup !== false,
+      });
       if (this._s.dialog === d) d.pre = pre;
     } catch (err) {
       if (this._s.dialog === d) d.error = err?.message || String(err);
@@ -1479,6 +1828,7 @@ class DatabaseCleanerPanel extends HTMLElement {
         this.dispatchEvent(new Event("hass-toggle-menu", { bubbles: true, composed: true }));
         break;
       case "tab":
+        if (value !== "overview") this._liveStop();
         s.tab = value;
         this._render();
         this._ensureTab();
@@ -1610,11 +1960,11 @@ class DatabaseCleanerPanel extends HTMLElement {
         this._copy(this._excludeYaml().text);
         break;
       case "open-delete":
-        s.dialog = { kind: "delete", ids: [...s.cand.selected].sort(), repack: true, pre: null, text: "", error: "" };
+        s.dialog = { kind: "delete", ids: [...s.cand.selected].sort(), repack: true, backup: true, pre: null, text: "", error: "" };
         this._preflight();
         break;
       case "open-repack":
-        s.dialog = { kind: "repack", pre: null, text: "", error: "" };
+        s.dialog = { kind: "repack", backup: true, pre: null, text: "", error: "" };
         this._preflight();
         break;
       case "dlg-close":
@@ -1625,8 +1975,8 @@ class DatabaseCleanerPanel extends HTMLElement {
         const d = s.dialog;
         if (!d) break;
         if (d.kind === "delete")
-          this._startJob({ kind: "delete", statistic_ids: d.ids, repack: d.repack, confirm: true });
-        else this._startJob({ kind: "repack", confirm: true });
+          this._startJob({ kind: "delete", statistic_ids: d.ids, repack: d.repack, backup: d.backup, confirm: true });
+        else this._startJob({ kind: "repack", backup: d.backup, confirm: true });
         break;
       }
       case "backup-now":
@@ -1635,6 +1985,103 @@ class DatabaseCleanerPanel extends HTMLElement {
       case "cancel-job":
         this._ws("job/cancel");
         break;
+      case "guide":
+        s.iss.guide = s.iss.guide === value ? null : value;
+        this._renderContent();
+        break;
+      case "iss-select-shown":
+        for (const i of this._issueList()) if (this._issueSelectable(i)) s.iss.selected.add(i.statistic_id);
+        this._renderContent();
+        break;
+      case "iss-clear":
+        s.iss.selected.clear();
+        this._renderContent();
+        break;
+      case "iss-copy":
+        this._copy([...s.iss.selected].sort().join("\n"));
+        break;
+      case "iss-delete": {
+        const info = new Map();
+        for (const i of s.issues?.issues || [])
+          if (!info.has(i.statistic_id)) info.set(i.statistic_id, { rows: i.rows ?? 0, source: i.stat_source, category: i.category });
+        s.dialog = {
+          kind: "delete",
+          ids: [...s.iss.selected].sort(),
+          repack: true,
+          backup: true,
+          pre: null,
+          text: "",
+          error: "",
+          info,
+          rowBytes: s.issues?.row_bytes,
+        };
+        this._preflight();
+        break;
+      }
+      case "copy-entity":
+        this._copy(value);
+        break;
+      case "live-toggle":
+        if (s.live.on) this._liveStop();
+        else this._liveStart();
+        this._renderContent();
+        break;
+      case "tips":
+        s.st.tips = s.st.tips === value ? null : value;
+        this._renderContent();
+        break;
+      case "copy-snippet":
+        this._copy(value);
+        break;
+      case "restore-cmds":
+        s.restoreOpen = s.restoreOpen === value ? null : value;
+        this._renderContent();
+        break;
+      case "restore-env":
+        s.restoreEnv = value;
+        this._renderContent();
+        break;
+      case "copy-cmds": {
+        const b = (s.maintenance?.backups || []).find((x) => x.name === value);
+        if (b) this._copy(this._restoreCommands(b));
+        break;
+      }
+      case "download":
+        this._download(el.dataset.kind, value);
+        break;
+      case "delete-archive":
+        if (window.confirm(this.t("confirm_delete_archive", { name: value })))
+          this._ws("archive/delete", { name: value, confirm: true })
+            .catch((err) => (s.notice = `⚠️ ${err?.message || err}`))
+            .finally(() => this._load("maintenance", "maintenance"));
+        break;
+      case "archive-info": {
+        const a = (s.maintenance?.archives || []).find((x) => x.name === value);
+        if (a) {
+          s.dialog = { kind: "archive", name: a.name, archive: a, selected: new Set(a.statistics.map((x) => x.statistic_id)), error: "" };
+          this._renderContent();
+        }
+        break;
+      }
+      case "arc-all":
+        if (s.dialog?.kind === "archive") {
+          s.dialog.selected = new Set(s.dialog.archive.statistics.map((x) => x.statistic_id));
+          this._renderContent();
+        }
+        break;
+      case "arc-none":
+        if (s.dialog?.kind === "archive") {
+          s.dialog.selected = new Set();
+          this._renderContent();
+        }
+        break;
+      case "arc-restore": {
+        const d = s.dialog;
+        if (!d || d.kind !== "archive" || !d.selected.size) break;
+        const all = d.selected.size === d.archive.statistics.length;
+        this._startJob({ kind: "restore", archive: d.name, statistic_ids: all ? [] : [...d.selected], confirm: true });
+        break;
+      }
       case "dismiss-notice":
         s.notice = "";
         this._renderContent();
@@ -1675,13 +2122,39 @@ class DatabaseCleanerPanel extends HTMLElement {
       }
       ta.remove();
     }
-    this._s.cand.toast = ok ? `✅ ${this.t("copied")}` : "⚠️";
-    this._renderContent();
+    this._toast(ok ? `✅ ${this.t("copied")}` : "⚠️");
+  }
+
+  /** A small floating message that survives re-rendering of the tab. */
+  _toast(msg) {
+    let el = this.shadowRoot.getElementById("toast");
+    if (!el) {
+      el = document.createElement("div");
+      el.id = "toast";
+      el.className = "toast-float";
+      this.shadowRoot.appendChild(el);
+    }
+    el.textContent = msg;
+    el.classList.add("show");
     clearTimeout(this._toastTimer);
-    this._toastTimer = setTimeout(() => {
-      this._s.cand.toast = "";
-      this._renderContent();
-    }, 2000);
+    this._toastTimer = setTimeout(() => el.classList.remove("show"), 2200);
+  }
+
+  /** "Save to this computer": a signed link (a plain download cannot carry the WebSocket token). */
+  async _download(kind, name) {
+    try {
+      const { url } = await this._ws("download/sign", { kind, name });
+      const a = document.createElement("a");
+      a.href = this._hass.hassUrl ? this._hass.hassUrl(url) : url;
+      a.download = name;
+      a.rel = "noopener";
+      this.shadowRoot.appendChild(a);
+      a.click();
+      a.remove();
+      this._toast(`⬇️ ${this.t("download_started")}`);
+    } catch (err) {
+      this._toast(`⚠️ ${err?.message || err}`);
+    }
   }
 
   _onChange(e) {
@@ -1691,6 +2164,27 @@ class DatabaseCleanerPanel extends HTMLElement {
       if (el.checked) s.cand.selected.add(el.value);
       else s.cand.selected.delete(el.value);
       this._renderContent();
+      return;
+    }
+    if (el.dataset.field === "iss-select") {
+      if (el.checked) s.iss.selected.add(el.value);
+      else s.iss.selected.delete(el.value);
+      this._renderContent();
+      return;
+    }
+    if (el.dataset.field === "dlg-backup" && s.dialog) {
+      s.dialog.backup = el.checked;
+      this._preflight();
+      return;
+    }
+    if (el.dataset.field === "arc-select" && s.dialog?.kind === "archive") {
+      if (el.checked) s.dialog.selected.add(el.value);
+      else s.dialog.selected.delete(el.value);
+      // no re-render: keep the scroll position of a long list
+      const n = this.shadowRoot.querySelector('[data-arc="count"]');
+      if (n) n.textContent = this.n(s.dialog.selected.size);
+      const btn = this.shadowRoot.querySelector('[data-action="arc-restore"]');
+      if (btn) btn.disabled = !s.dialog.selected.size;
       return;
     }
     if (el.dataset.field === "dlg-repack" && s.dialog) {
@@ -1783,6 +2277,48 @@ class DatabaseCleanerPanel extends HTMLElement {
     if (s < 172800) return `${this.dec(s / 3600)} ${this.t("h")}`;
     return `${Math.round(s / 86400)} ${this.t("d")}`;
   }
+  /** "5 minutes ago": a single unit, the largest that fits (seconds → minutes → hours → days → months → years). */
+  ago(ts) {
+    if (ts == null) return "—";
+    const sec = Math.max(0, Date.now() / 1000 - ts);
+    const rtf = new Intl.RelativeTimeFormat(LOCALE[this._lang], { numeric: "auto" });
+    const units = [
+      ["year", 365 * 86400],
+      ["month", 30.44 * 86400],
+      ["day", 86400],
+      ["hour", 3600],
+      ["minute", 60],
+    ];
+    for (const [unit, size] of units) if (sec >= size) return rtf.format(-Math.floor(sec / size), unit);
+    return rtf.format(-Math.floor(sec), "second");
+  }
+  /** The exact moment, with seconds (tooltips). */
+  datetime(ts) {
+    if (ts == null) return "—";
+    return new Date(ts * 1000).toLocaleString(LOCALE[this._lang], {
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+    });
+  }
+  /** Relative time as HTML, the exact moment in the tooltip. */
+  when(ts) {
+    return ts == null ? "—" : `<span title="${esc(this.datetime(ts))}">${esc(this.ago(ts))}</span>`;
+  }
+  /** An entity name: opens the standard Home Assistant card when the entity exists, plus a copy button. */
+  _ent(id) {
+    const isEntity = /^[a-z0-9_]+\.[a-z0-9_]+$/.test(id || "");
+    const known = isEntity && (this._hass?.states?.[id] || this._hass?.entities?.[id]);
+    const name = known
+      ? `<button class="entlink" data-action="more-info" data-value="${esc(id)}" title="${esc(this.t("open_card"))}">${esc(id)}</button>`
+      : `<span>${esc(id)}</span>`;
+    return `<span class="ent">${name}<button class="entcopy" data-action="copy-entity" data-value="${esc(id)}" title="${esc(
+      this.t("copy_name")
+    )}" aria-label="${esc(this.t("copy_name"))}">${ic("copy")}</button></span>`;
+  }
   windowLabel(h) {
     return h < 24 ? `${h} ${this.t("h")}` : h % 24 === 0 ? `${h / 24} ${this.t("d")}` : `${h} ${this.t("h")}`;
   }
@@ -1851,6 +2387,7 @@ class DatabaseCleanerPanel extends HTMLElement {
       ? `<div class="card notice"><span>${esc(s.notice)}</span><button class="icon small" data-action="dismiss-notice" title="${this.t("close")}">${ic("close")}</button></div>`
       : "";
     main.innerHTML = notice + html + (s.dialog ? this._dialog() : "");
+    if (s.tab === "overview") this._liveDraw();
   }
 
   _spinner(key, note = "") {
@@ -1920,7 +2457,10 @@ class DatabaseCleanerPanel extends HTMLElement {
         tab: "maintenance",
         icon: "vacuum",
         color: WARN_COLOR,
-        title: this.t("next_free_pages", { pct: this.pct(sq.freelist_count, sq.page_count, 0) }),
+        title: this.t("next_free_pages", {
+          pct: this.pct(sq.freelist_count, sq.page_count, 0),
+          size: this.size(sq.freelist_count * (sq.page_size || 4096)),
+        }),
         sub: this.t("next_free_pages_sub"),
       });
     items.push({ tab: "issues", icon: "issues", color: WARN_COLOR, title: this.t("next_issues"), sub: this.t("next_issues_sub") });
@@ -2082,14 +2622,19 @@ class DatabaseCleanerPanel extends HTMLElement {
     const mib = this.t("mib");
     return `
       <div class="kpis" data-tour="overview-kpis">${kpis}</div>
+      ${this._liveCard()}
+      <div class="pair">
       <div class="card" data-tour="overview-next"><h2>${ic("rocket")}${this.t("next_title")}</h2><div class="nexts">${this._nextSteps(
       o,
       groups,
       totalBytes
     )}</div></div>
       <div class="card" data-tour="overview-space"><div class="card-head"><h2>${ic("chart")}${this.t("space")}</h2>${this._meta(o)}</div>${space}</div>
+      </div>
+      <div class="pair">
       <div class="card" data-tour="overview-flow"><h2>${ic("journey")}${this.t("flow_title")}</h2>${this._flow(groups, totalBytes, rec)}</div>
       <div class="card" data-tour="overview-since"><h2>${ic("calendar")}${this.t("data_since")}</h2>${since}</div>
+      </div>
       <div class="card" data-tour="overview-tables"><h2>${ic("table")}${this.t("tables")}</h2>
         <div class="table-wrap"><table>
           <thead><tr><th>${this.t("table")}</th><th class="num">${this.t("rows")}</th>
@@ -2098,6 +2643,218 @@ class DatabaseCleanerPanel extends HTMLElement {
     )}, ${mib}</th>
             <th class="num">${this.t("total")}, ${mib}</th><th class="num">${this.t("share")}</th></tr></thead>
           <tbody>${tableHtml}</tbody></table></div></div>`;
+  }
+
+  // ---------------------------------------------------------------- live view
+  _liveCard() {
+    const L = this._s.live;
+    const sec = this._s.info?.recorder?.commit_interval ?? 5;
+    const btn = `<button class="btn ${L.on ? "danger" : ""}" data-action="live-toggle">${ic(L.on ? "stop" : "play")}${this.t(
+      L.on ? "live_stop" : "live_start"
+    )}</button>`;
+    const tile = (key, icon, color, label) =>
+      `<div class="live-tile" data-live-tile="${key}" style="--c:${color}">${badge(icon, color)}<div><div class="kpi-label">${label}</div>
+        <div class="live-num" data-live="${key}-rate">0</div><div class="kpi-sub" data-live="${key}-sub"></div></div></div>`;
+    const cells = Array.from({ length: LIVE_SAMPLES }, () => '<div class="lc"><i class="s"></i><i class="e"></i></div>').join("");
+    const arcs = LIVE_COLORS.map(
+      (c, i) =>
+        `<circle class="arc live-arc" cx="60" cy="60" r="46" pathLength="100" data-live="arc-${i}" style="stroke:${c}" stroke-dasharray="0 100"/>`
+    ).join("");
+    const legend = LIVE_COLORS.map(
+      (c, i) =>
+        `<div class="live-lg" data-live="lg-${i}" hidden><span class="dot" style="background:${c}"></span><span class="lg-name" data-live="lg-name-${i}"></span><b data-live="lg-v-${i}"></b></div>`
+    ).join("");
+    const queue = `<div class="live-tile" data-live-tile="queue" style="--c:${WARN_COLOR}"><svg class="ring" viewBox="0 0 44 44"><circle cx="22" cy="22" r="18" class="donut-bg" style="stroke-width:5"/>
+      <circle class="arc live-arc" cx="22" cy="22" r="18" pathLength="100" data-live="queue-arc" style="stroke:var(--c);stroke-width:5;transform-origin:22px 22px" stroke-dasharray="0 100" stroke-linecap="round"/>
+      <text x="22" y="22.5" class="ring-t" data-live="queue-t">0</text></svg>
+      <div><div class="kpi-label">${this.t("live_queue")}</div><div class="kpi-sub">${this.t("live_queue_sub")}</div></div></div>`;
+    const body = L.on
+      ? `<div class="live-tiles">${tile("states", "states", GROUP_COLOR.states, this.t("states"))}${tile(
+          "events",
+          "calendar",
+          GROUP_COLOR.events,
+          this.t("events")
+        )}${queue}
+          <div class="live-tile" data-live-tile="file" style="--c:${ACCENT}">${badge("database", ACCENT)}<div><div class="kpi-label">${this.t(
+          "live_file"
+        )}</div><div class="live-num" data-live="file-size">—</div><div class="kpi-sub" data-live="file-sub"></div></div></div></div>
+        <div class="live-grid">
+          <div><h3>${this.t("live_chart")}</h3><div class="live-chart" data-live="chart" style="--sc:${GROUP_COLOR.states};--ec:${
+          GROUP_COLOR.events
+        }">${cells}</div>
+            <div class="muted small live-legend"><span class="lg-i"><span class="dot" style="background:${GROUP_COLOR.states}"></span>${this.t(
+          "states"
+        )}</span> <span class="lg-i"><span class="dot" style="background:${GROUP_COLOR.events}"></span>${this.t("events")}</span></div></div>
+          <div><h3>${this.t("live_who")}</h3><div class="live-who"><svg class="donut" viewBox="0 0 120 120"><circle cx="60" cy="60" r="46" class="donut-bg"/>${arcs}
+            <text x="60" y="60" class="donut-c" data-live="donut-c">0</text><text x="60" y="75" class="donut-s">${this.t("live_rows")}</text></svg>
+            <div class="live-legend-list">${legend}</div></div></div>
+        </div>
+        <div class="muted small" data-live="msg">${this.t("live_waiting")}</div>
+        <div class="muted small tipline">${ic("info")}<span>${this.t("live_hint", { s: sec })}</span></div>`
+      : `<div class="muted tipline">${ic("pulse")}<span>${this.t("live_idle")}</span></div>`;
+    return `<div class="card live ${L.on ? "on" : ""}" data-tour="overview-live"><div class="card-head"><h2>${ic("pulse")}${this.t(
+      "live_title"
+    )}${L.on ? '<span class="pulse"></span>' : ""}</h2>${btn}</div>${body}</div>`;
+  }
+
+  _liveStart() {
+    const L = this._s.live;
+    Object.assign(L, {
+      on: true,
+      busy: false,
+      cursor: null,
+      samples: [],
+      prevT: 0,
+      total: { states: 0, events: 0 },
+      size0: null,
+      last: null,
+      error: "",
+      flashed: 0,
+    });
+    clearInterval(this._liveTimer);
+    this._liveTimer = setInterval(() => this._liveTick(), 2000);
+    this._liveTick();
+  }
+
+  _liveStop() {
+    clearInterval(this._liveTimer);
+    this._liveTimer = null;
+    if (this._s?.live) this._s.live.on = false;
+  }
+
+  async _liveTick() {
+    const L = this._s.live;
+    if (!L.on || L.busy || document.hidden) return;
+    L.busy = true;
+    try {
+      const r = await this._ws("live", L.cursor ? { cursor: L.cursor } : {});
+      if (!L.on) return;
+      const now = Date.now();
+      if (r.added) {
+        L.samples.push({
+          t: now,
+          prevT: L.prevT,
+          states: r.added.states,
+          events: r.added.events,
+          top: r.top || [],
+        });
+        L.samples = L.samples.slice(-LIVE_SAMPLES);
+        L.total.states += r.added.states;
+        L.total.events += r.added.events;
+      } else {
+        L.size0 = (r.size || 0) + (r.wal_size || 0);
+      }
+      L.cursor = r.cursor;
+      L.prevT = now;
+      L.last = r;
+      L.error = "";
+    } catch (err) {
+      L.error = err?.message || String(err);
+    } finally {
+      L.busy = false;
+    }
+    this._liveDraw();
+  }
+
+  /** Updates the live card in place (no re-render), so bars and arcs animate between polls. */
+  _liveDraw() {
+    const L = this._s.live;
+    const root = this.shadowRoot;
+    if (!L.on || !root.querySelector('[data-live="chart"]')) return;
+    const q = (k) => root.querySelector(`[data-live="${k}"]`);
+    const text = (k, v) => {
+      const el = q(k);
+      if (el && el.textContent !== String(v)) el.textContent = v;
+    };
+    const flash = (key) => {
+      const el = root.querySelector(`[data-live-tile="${key}"]`);
+      if (!el) return;
+      el.classList.remove("flash");
+      void el.offsetWidth;
+      el.classList.add("flash");
+    };
+    const now = Date.now();
+    const recent = L.samples.filter((x) => now - x.t <= 60000);
+    const span = recent.length ? Math.max(1, (recent[recent.length - 1].t - recent[0].prevT) / 1000) : 0;
+    const sum = (k) => recent.reduce((a, x) => a + x[k], 0);
+    const rate = (k) => (span ? Math.round((sum(k) * 60) / span) : 0);
+    const per = this.t("live_per_min");
+    text("states-rate", `${this.n(rate("states"))} ${per}`);
+    text("states-sub", `+${this.n(L.total.states)} ${this.t("live_total")}`);
+    text("events-rate", `${this.n(rate("events"))} ${per}`);
+    text("events-sub", `+${this.n(L.total.events)} ${this.t("live_total")}`);
+
+    const r = L.last;
+    if (r) {
+      const backlog = r.backlog ?? 0;
+      text("queue-t", this.n(backlog));
+      const arc = q("queue-arc");
+      if (arc) arc.style.strokeDasharray = `${Math.min(100, (backlog / 200) * 100)} 100`;
+      const size = (r.size || 0) + (r.wal_size || 0);
+      text("file-size", this.size(size));
+      const grow = L.size0 == null ? 0 : size - L.size0;
+      text("file-sub", `WAL ${this.size(r.wal_size)} · ${grow >= 0 ? "+" : "−"}${this.size(Math.abs(grow))}`);
+    }
+    text(
+      "msg",
+      L.error
+        ? `⚠️ ${L.error}`
+        : r?.recording === false
+        ? `⚠️ ${this.t("live_rec_off")}`
+        : L.samples.length
+        ? ""
+        : this.t("live_waiting")
+    );
+
+    // scrolling columns: the newest poll is on the right
+    const cells = q("chart")?.children;
+    const max = Math.max(1, ...L.samples.map((x) => Math.max(x.states, x.events)));
+    for (let i = 0; i < LIVE_SAMPLES; i++) {
+      const smp = L.samples[L.samples.length - LIVE_SAMPLES + i];
+      const cell = cells?.[i];
+      if (!cell) continue;
+      cell.children[0].style.height = smp ? `${(100 * smp.states) / max}%` : "0";
+      cell.children[1].style.height = smp ? `${(100 * smp.events) / max}%` : "0";
+      cell.title = smp ? `${this.n(smp.states)} ${this.t("states").toLowerCase()} · ${this.n(smp.events)} ${this.t("events").toLowerCase()}` : "";
+    }
+    const newest = L.samples[L.samples.length - 1];
+    if (newest && L.flashed !== newest.t) {
+      L.flashed = newest.t;
+      if (newest.states) flash("states");
+      if (newest.events) flash("events");
+    }
+
+    // who writes: donut + legend over the last minute
+    const agg = new Map();
+    for (const x of recent) for (const t of x.top) agg.set(t.entity_id, (agg.get(t.entity_id) || 0) + t.rows);
+    const total = sum("states");
+    const top = [...agg.entries()].sort((a, b) => b[1] - a[1]).slice(0, LIVE_COLORS.length - 1);
+    const slots = new Array(LIVE_COLORS.length).fill(null);
+    top.forEach(([id, n], i) => (slots[i] = { label: id, n }));
+    const rest = total - top.reduce((a, [, n]) => a + n, 0);
+    if (rest > 0) slots[LIVE_COLORS.length - 1] = { label: this.t("live_other"), n: rest };
+    const shownTotal = slots.reduce((a, x) => a + (x?.n || 0), 0);
+    let acc = 0;
+    slots.forEach((it, i) => {
+      const arc = q(`arc-${i}`);
+      const row = q(`lg-${i}`);
+      if (!arc || !row) return;
+      if (!it || !shownTotal) {
+        arc.style.strokeDasharray = "0 100";
+        row.hidden = true;
+        return;
+      }
+      const len = (100 * it.n) / shownTotal;
+      const dash = Math.max(len - 0.6, 0.01);
+      arc.style.strokeDasharray = `${dash} ${100 - dash}`;
+      arc.style.strokeDashoffset = String(-acc);
+      acc += len;
+      row.hidden = false;
+      text(`lg-name-${i}`, it.label);
+      q(`lg-name-${i}`).title = it.label;
+      text(`lg-v-${i}`, this.n(it.n));
+    });
+    text("donut-c", this.n(shownTotal));
   }
 
   // ---------------------------------------------------------------- candidates
@@ -2251,11 +3008,11 @@ class DatabaseCleanerPanel extends HTMLElement {
                 }></td>`
               : ""
           }
-          <td class="name"><div class="eid">${esc(i.statistic_id)} ${this._refsBadge(i.refs)}</div>
+          <td class="name"><div class="eid">${this._ent(i.statistic_id)} ${this._refsBadge(i.refs)}</div>
             <div class="muted small">${sub}</div><div class="tags">${reasons}</div></td>
           <td class="num barcell"><div class="bar"><span style="width:${(100 * i.rows) / max}%"></span></div>${this.n(i.rows)}</td>
           <td class="num hide-narrow">${this.mib(i.rows * rb, 2)}</td>
-          <td class="num">${this.date(i.last_ts)}</td>
+          <td class="num">${this.when(i.last_ts)}</td>
         </tr>`;
       })
       .join("");
@@ -2267,13 +3024,12 @@ class DatabaseCleanerPanel extends HTMLElement {
           selRows * rb
         )}</span></span>
           <button class="btn small" data-action="select-shown">${ic("select")}${this.t("select_shown")}</button>
-          <button class="btn small" data-action="clear-selection" ${none}>${ic("clear")}${this.t("clear_selection")}</button>
-          <button class="btn small" data-action="copy-list" ${none}>${ic("copy")}${this.t("copy_list")}</button>
+          ${iconBtn("clear-selection", "clear", this.t("clear_selection"), { disabled: !f.selected.size })}
+          ${iconBtn("copy-list", "copy", this.t("copy_list"), { disabled: !f.selected.size })}
           <button class="btn small" data-action="toggle-yaml" ${none}>${ic("yaml")}${this.t("exclude_yaml")}</button>
           <button class="btn small danger" data-action="open-delete" data-tour="cand-delete" ${
             f.selected.size && !s.jobs?.current ? "" : "disabled"
           }>${ic("delete")}${this.t("delete_selected")}</button>
-          <span class="toast">${esc(f.toast)}</span>
         </div>`
       : "";
 
@@ -2287,10 +3043,10 @@ class DatabaseCleanerPanel extends HTMLElement {
     }
 
     return `
-      ${summary}
-      <div class="cats" data-tour="cand-verdicts">${cards}</div>
+      <div class="pair">${summary}
       <div class="card" data-tour="cand-coverage"><h2>${ic("search")}${this.t("coverage")}</h2><div class="sources">${coverage}</div>
-        ${note("info", this.t("not_checked"))}${errors}</div>
+        ${note("info", this.t("not_checked"))}${errors}</div></div>
+      <div class="cats" data-tour="cand-verdicts">${cards}</div>
       <div class="card">
         ${
           f.focus
@@ -2328,7 +3084,7 @@ class DatabaseCleanerPanel extends HTMLElement {
   }
 
   /** The steps of a job as a stepper; `current` marks the running one (done before it, pending after). */
-  _flowSteps(kind, { repack = true, current = null, compact = false } = {}) {
+  _flowSteps(kind, { repack = true, current = null, compact = false, backup = true } = {}) {
     const defs = {
       preflight: ["shield_ok", "sf_preflight"],
       backup: ["backup", "sf_backup"],
@@ -2336,13 +3092,14 @@ class DatabaseCleanerPanel extends HTMLElement {
       repack: ["vacuum", "sf_repack"],
       restore: ["restore", "sf_restore"],
     };
-    const order =
+    const order0 =
       {
         delete: ["preflight", "backup", "delete", ...(repack ? ["repack"] : [])],
         repack: ["preflight", "backup", "repack"],
         backup: ["preflight", "backup"],
         restore: ["restore"],
       }[kind] || ["preflight", "backup", "delete", "repack"];
+    const order = order0.filter((k) => backup || k !== "backup");
     const at = current ? order.indexOf(current) : -1;
     return order.map((k, i) => ({
       icon: defs[k][0],
@@ -2370,32 +3127,79 @@ class DatabaseCleanerPanel extends HTMLElement {
     }`;
   }
 
+  _backupOption(d, hours) {
+    const last = d.pre?.last_backup;
+    const lastLine = last
+      ? this.t("dlg_last_backup", { ago: this.when(last.created_ts) })
+      : d.pre
+      ? this.t("dlg_no_backup")
+      : "";
+    return `<label class="check-line"><input type="checkbox" data-field="dlg-backup" ${d.backup ? "checked" : ""}>${ic("backup")} ${this.t(
+      "dlg_backup_opt"
+    )}</label>
+      ${
+        d.backup
+          ? `<div class="muted small">${this.t("dlg_backup_note", { h: this.n(hours) })}</div>`
+          : `<p class="warn-text tipline">${ic("warning")}<span>${this.t(d.kind === "delete" ? "dlg_backup_off" : "dlg_backup_off_repack")}</span></p>`
+      }
+      ${lastLine ? `<div class="muted small tipline">${ic("restore")}<span>${lastLine}</span></div>` : ""}`;
+  }
+
+  _archiveDialog() {
+    const d = this._s.dialog;
+    const a = d.archive;
+    const rows = a.statistics
+      .map(
+        (x) => `<tr><td class="check-cell"><input type="checkbox" data-field="arc-select" value="${esc(x.statistic_id)}" ${
+          d.selected.has(x.statistic_id) ? "checked" : ""
+        }></td><td class="name"><div class="eid">${this._ent(x.statistic_id)}</div></td><td class="num">${this.n(x.rows)}</td></tr>`
+      )
+      .join("");
+    return `<div class="overlay"><div class="dialog card wide" role="dialog" aria-modal="true">
+      <div class="dlg-head">${badge("restore", OK_COLOR, "lg")}<div><h2>${this.t("arc_title")}</h2>
+        <div class="muted small eid">${esc(a.name)}</div>
+        <div class="muted small">${this.when(a.created_ts)} · ${this.t("statistics_n")}: ${this.n(a.statistics.length)} · ${this.t("rows")}: ${this.n(
+      a.rows
+    )}</div></div></div>
+      <p class="muted">${this.t("arc_hint")}</p>
+      <div class="controls"><button class="btn small" data-action="arc-all">${ic("select")}${this.t("arc_select_all")}</button>
+        ${iconBtn("arc-none", "clear", this.t("arc_select_none"))}
+        <span class="muted small">${this.t("arc_selected")}: <b data-arc="count">${this.n(d.selected.size)}</b> / ${this.n(a.statistics.length)}</span></div>
+      <div class="arc-list"><table><tbody>${rows}</tbody></table></div>
+      ${d.error ? `<div class="error tipline">${ic("error")}<span>${esc(d.error)}</span></div>` : ""}
+      <div class="dialog-actions">
+        <button class="btn" data-action="dlg-close">${ic("close")}${this.t("close")}</button>
+        <button class="btn solid" data-action="arc-restore" ${d.selected.size ? "" : "disabled"}>${ic("restore")}${this.t("arc_restore_sel")}</button>
+      </div></div></div>`;
+  }
+
   _dialog() {
     const d = this._s.dialog;
+    if (d.kind === "archive") return this._archiveDialog();
     const hours = this._s.maintenance?.settings?.max_age_hours ?? 24;
     let body = "";
     if (d.kind === "delete") {
-      const byId = new Map((this._s.statistics?.items || []).map((i) => [i.statistic_id, i]));
+      const byId = d.info || new Map((this._s.statistics?.items || []).map((i) => [i.statistic_id, i]));
       const items = d.ids.map((sid) => byId.get(sid)).filter(Boolean);
       const rows = items.reduce((a, i) => a + i.rows, 0);
-      const rb = this._s.statistics?.row_bytes || 78;
+      const rb = d.rowBytes || this._s.statistics?.row_bytes || 78;
       const live = items.filter((i) => i.source === "recorder" && LIVE_CATEGORIES.has(i.category)).length;
       body = `
         <div class="dlg-head">${badge("delete", BAD_COLOR, "lg")}<div><h2>${this.t("dlg_delete_title")}</h2>
           <b>${this.t("dlg_summary", { n: this.n(d.ids.length), rows: this.n(rows), size: this.size(rows * rb) })}</b></div></div>
         ${live ? `<p class="warn-text tipline">${ic("warning")}<span>${this.t("dlg_live_warn", { n: this.n(live) })}</span></p>` : ""}
-        <p class="muted tipline">${ic("backup")}<span>${this.t("dlg_backup", { h: this.n(hours) })}</span></p>
+        ${this._backupOption(d, hours)}
         <label class="check-line"><input type="checkbox" data-field="dlg-repack" ${d.repack ? "checked" : ""}>
           ${this.t("dlg_repack")}</label>
         <div class="muted small">${this.t("dlg_repack_note")}</div>`;
     } else {
       body = `<div class="dlg-head">${badge("vacuum", ACCENT, "lg")}<h2>${this.t("repack_title")}</h2></div>
         <p class="muted">${this.t("repack_text")}</p>
-        <p class="muted tipline">${ic("backup")}<span>${this.t("dlg_backup", { h: this.n(hours) })}</span></p>`;
+        ${this._backupOption(d, hours)}`;
     }
     return `<div class="overlay"><div class="dialog card" role="dialog" aria-modal="true">
       ${body}
-      ${stepper(this._flowSteps(d.kind, { repack: d.repack }))}
+      ${stepper(this._flowSteps(d.kind, { repack: d.repack, backup: d.backup !== false }))}
       <h3>${this.t("preflight")}</h3>${this._checks(d.pre)}
       ${d.error ? `<div class="error tipline">${ic("error")}<span>${esc(d.error)}</span></div>` : ""}
       <label class="confirm"><span>${this.t("dlg_type", { word: `<b>${esc(this._confirmWord())}</b>` })}</span>
@@ -2412,14 +3216,28 @@ class DatabaseCleanerPanel extends HTMLElement {
   _jobSummary(j) {
     const r = j.result || {};
     if (j.status !== "done") return esc(j.error || "");
-    if (j.kind === "delete") {
-      const size = r.size_after != null ? ` · ${this.t("result_size", { before: this.size(r.size_before), after: this.size(r.size_after) })}` : "";
-      return this.t("result_delete", { n: this.n(r.deleted), rows: this.n(r.deleted_rows) }) + size;
-    }
-    if (j.kind === "repack") return this.t("result_size", { before: this.size(r.size_before), after: this.size(r.size_after) });
     if (j.kind === "backup") return `${esc(r.backup)} · ${this.size(r.size)}`;
-    if (j.kind === "restore") return this.t("result_restore", { n: this.n(r.restored) });
-    return "";
+    if (j.kind === "restore") return esc(this.t("result_restore", { n: this.n(r.restored) }));
+    const parts = [];
+    if (j.kind === "delete") {
+      parts.push(this.t("result_delete", { n: this.n(r.deleted), rows: this.n(r.deleted_rows) }));
+      if (r.freed_bytes != null) parts.push(this.t("result_freed", { size: this.size(r.freed_bytes) }));
+    }
+    if (r.size_before != null && r.size_after != null) {
+      const delta = r.size_before - r.size_after;
+      if (j.kind === "delete" && Math.abs(delta) < 1048576)
+        parts.push(this.t("result_file_same", { size: this.size(r.size_after) }));
+      else
+        parts.push(
+          this.t("result_file", {
+            before: this.size(r.size_before),
+            after: this.size(r.size_after),
+            delta: `${delta >= 0 ? "−" : "+"}${this.size(Math.abs(delta))}`,
+          })
+        );
+    }
+    if (j.params?.backup === false) parts.push(this.t("result_no_backup"));
+    return esc(parts.join(" · "));
   }
 
   _currentJob(job) {
@@ -2435,6 +3253,51 @@ class DatabaseCleanerPanel extends HTMLElement {
       <div class="progress ${pct == null ? "indeterminate" : ""}"><span style="width:${pct ?? 30}%"></span></div>
       ${log ? `<pre class="log">${log}</pre>` : ""}
     </div>`;
+  }
+
+  /** The terminal commands that put one backup in place of the live database. */
+  _restoreCommands(b) {
+    const t = (k) => this.t(k);
+    const dbPath = this._s.info?.db_path || "/config/home-assistant_v2.db";
+    const cut = Math.max(dbPath.lastIndexOf("/"), dbPath.lastIndexOf("\\"));
+    const dir = cut > 0 ? dbPath.slice(0, cut) : "/";
+    const base = dbPath.slice(cut + 1);
+    const file = b.file || `${this._s.maintenance?.settings?.backup_dir || "."}/${b.name}`;
+    const env = this._s.restoreEnv;
+    const stop = { haos: "ha core stop", docker: "docker stop homeassistant", core: "sudo systemctl stop home-assistant@homeassistant" }[env];
+    const start = stop.replace(" stop", " start").replace("stop ", "start ");
+    const lines = [
+      `# ${t("rc_stop")}`,
+      stop,
+      "",
+      `# ${t("rc_aside")}`,
+      `cd "${dir}"`,
+      `mv "${base}" "${base}.before-restore"`,
+      "",
+      `# ${t("rc_wal")}`,
+      `rm -f "${base}-wal" "${base}-shm"`,
+      "",
+      `# ${t("rc_copy")}`,
+      `cp "${file}" "${base}"`,
+    ];
+    if (b.sha256) lines.push(`# ${t("rc_check")} ${b.sha256}`, `sha256sum "${base}"`);
+    lines.push("", `# ${t("rc_start")}`, start);
+    return lines.join("\n");
+  }
+
+  _restoreBlock(b) {
+    const s = this._s;
+    const envs = ["haos", "docker", "core"]
+      .map(
+        (e) =>
+          `<button class="pill ${s.restoreEnv === e ? "active" : ""}" data-action="restore-env" data-value="${e}">${this.t(`restore_env_${e}`)}</button>`
+      )
+      .join("");
+    return `<div class="cmds"><div class="controls">${envs}</div>
+      <div class="muted small">${this.t("restore_note")}</div>
+      <div class="snippet"><pre>${esc(this._restoreCommands(b))}</pre>${iconBtn("copy-cmds", "copy", this.t("restore_copy"), { value: b.name })}</div>
+      ${s.restoreEnv === "docker" ? note("info", this.t("restore_docker_note")) : ""}
+      ${note("warning", this.t("restore_lose", { date: this.date(b.created_ts, true) }), "warn")}</div>`;
   }
 
   _maintenance() {
@@ -2466,12 +3329,12 @@ class DatabaseCleanerPanel extends HTMLElement {
               100 * freeRatio,
               freeRatio >= 0.1 ? WARN_COLOR : OK_COLOR,
               `${Math.round(100 * freeRatio)}%`
-            )}<span>${this.t("free_pages")}</span></div></div>`
+            )}<span>${this.t("free_pages")} · ${this.size(m.db.free_bytes)}</span></div></div>`
           : ""
       }
       <div class="rows">
         <div><span class="rl">${ic("database")}${this.t("db_size")}</span><b>${this.size(m.db.size)}${m.db.wal_size ? ` + WAL ${this.size(m.db.wal_size)}` : ""}</b></div>
-        <div><span class="rl">${ic("free")}${this.t("free_pages")}</span><b>${this.pct(m.db.free_pages_ratio, 1)}</b></div>
+        <div><span class="rl">${ic("free")}${this.t("free_pages")}</span><b>${this.pct(m.db.free_pages_ratio, 1)} · ${this.size(m.db.free_bytes)}</b></div>
         <div><span class="rl">${ic("disk")}${this.t("disk_free")}</span><b>${this.size(m.db.free_db_dir)}</b></div>
         <div><span class="rl">${ic("folder")}${this.t("folder")}</span><b class="path">${esc(m.settings.backup_dir)}</b></div>
         <div><span class="rl">${ic("backup")}${this.t("fresh_backup")}</span><b>${m.fresh_backup ? esc(m.fresh_backup) : this.t("none")}</b></div>
@@ -2480,15 +3343,21 @@ class DatabaseCleanerPanel extends HTMLElement {
 
     const backups = m.backups.length
       ? `<div class="table-wrap"><table><tbody>${m.backups
-          .map(
-            (b) => `<tr><td class="name"><div class="eid">${esc(b.name)}</div>
-            <div class="muted small">${this.date(b.created_ts, true)} · ${this.size(b.size)} · ${
+          .map((b) => {
+            const open = s.restoreOpen === b.name;
+            return `<tr><td class="name"><div class="eid">${esc(b.name)}</div>
+            <div class="muted small">${this.date(b.created_ts, true)} · ${this.when(b.created_ts)} · ${this.size(b.size)} · ${
               b.verified ? `<span class="ok-text">${ic("verified")}${this.t("verified")}</span>` : ic("warning")
             } · schema ${esc(b.schema_version)}</div></td>
-            <td class="num"><button class="btn small" data-action="delete-backup" data-value="${esc(b.name)}" ${
-              busy ? "disabled" : ""
-            }>${ic("delete")}${this.t("delete")}</button></td></tr>`
-          )
+            <td class="num acts">${iconBtn("restore-cmds", "terminal", this.t("restore_how"), { value: b.name, cls: open ? "on" : "" })}${iconBtn(
+              "download",
+              "download",
+              this.t("download"),
+              { value: b.name, extra: 'data-kind="backup"' }
+            )}${iconBtn("delete-backup", "trash_can", this.t("delete"), { value: b.name, cls: "danger", disabled: busy })}</td></tr>${
+              open ? `<tr class="cmd-row"><td colspan="2">${this._restoreBlock(b)}</td></tr>` : ""
+            }`;
+          })
           .join("")}</tbody></table></div>`
       : `<div class="muted">${this.t("no_backups")}</div>`;
 
@@ -2496,12 +3365,20 @@ class DatabaseCleanerPanel extends HTMLElement {
       ? `<div class="table-wrap"><table><tbody>${m.archives
           .map(
             (a) => `<tr><td class="name"><div class="eid">${esc(a.name)}</div>
-            <div class="muted small">${this.date(a.created_ts, true)} · ${this.t("statistics_n")}: ${this.n(
+            <div class="muted small">${this.date(a.created_ts, true)} · ${this.when(a.created_ts)} · ${this.t("statistics_n")}: ${this.n(
               a.statistics.length
             )} · ${this.t("rows")}: ${this.n(a.rows)}${a.complete ? "" : ` · ${ic("warning")} ${this.t("incomplete")}`}</div></td>
-            <td class="num"><button class="btn small" data-action="restore-archive" data-value="${esc(a.name)}" ${
-              busy || !a.statistics.length ? "disabled" : ""
-            }>${ic("restore")}${this.t("restore")}</button></td></tr>`
+            <td class="num acts">${iconBtn("archive-info", "info", this.t("archive_info"), { value: a.name })}${iconBtn(
+              "restore-archive",
+              "restore",
+              this.t("restore"),
+              { value: a.name, disabled: busy || !a.statistics.length }
+            )}${iconBtn("download", "download", this.t("download"), { value: a.name, extra: 'data-kind="archive"' })}${iconBtn(
+              "delete-archive",
+              "trash_can",
+              this.t("delete"),
+              { value: a.name, cls: "danger", disabled: busy }
+            )}</td></tr>`
           )
           .join("")}</tbody></table></div>`
       : `<div class="muted">${this.t("no_archives")}</div>`;
@@ -2530,9 +3407,11 @@ class DatabaseCleanerPanel extends HTMLElement {
 
     return `${busy ? this._currentJob(jobs.current) : ""}
       ${flow}
-      <div class="grid2">
+      <div class="pair">
         ${actions}
         <div class="card" data-tour="maint-journal"><h2>${ic("journal")}${this.t("journal")}</h2>${journal}</div>
+      </div>
+      <div class="pair">
         <div class="card" data-tour="maint-backups"><h2>${ic("backup")}${this.t("backups")}</h2>${backups}${note("info", this.t("restore_full"))}</div>
         <div class="card" data-tour="maint-archives"><h2>${ic("restore")}${this.t("archives")}</h2>${archives}</div>
       </div>`;
@@ -2699,7 +3578,7 @@ class DatabaseCleanerPanel extends HTMLElement {
           .map(esc)
           .join(" · ");
         return `<tr>
-          <td class="name"><div class="eid">${esc(i.statistic_id)}${i.diagnostic ? ' <span class="tag">diag</span>' : ""} ${this._refsBadge(
+          <td class="name"><div class="eid">${this._ent(i.statistic_id)}${i.diagnostic ? ' <span class="tag">diag</span>' : ""} ${this._refsBadge(
           i.refs
         )}</div>
             <div class="muted small">${sub}</div></td>
@@ -2709,7 +3588,7 @@ class DatabaseCleanerPanel extends HTMLElement {
           <td class="num barcell"><div class="bar"><span style="width:${(100 * r) / max}%"></span></div>${this.n(r)}</td>
           <td class="num hide-narrow">${this.mib(r * rb, 2)}</td>
           <td class="num hide-narrow">${this.date(i.first_ts)}</td>
-          <td class="num">${this.date(i.last_ts)}</td>
+          <td class="num">${this.when(i.last_ts)}</td>
         </tr>`;
       })
       .join("");
@@ -2780,23 +3659,67 @@ class DatabaseCleanerPanel extends HTMLElement {
     return parts.join(" · ");
   }
 
-  _issues() {
-    const s = this._s;
-    if (s.errors.issues) return this._error(s.errors.issues);
-    if (!s.issues) return this._spinner("issues", this.t("issues_wait"));
-    const res = s.issues;
-    const f = s.iss;
+  /** Problems that pass the filters of the tab. */
+  _issueList() {
+    const f = this._s.iss;
     const q = f.search.trim().toLowerCase();
-    const HA_FIXABLE = new Set(["units_changed", "state_class_removed", "mean_type_changed"]);
-    const GONE = new Set(["no_state", "entity_no_longer_recorded", "lts_stalled"]);
-
-    const list = res.issues.filter(
+    return (this._s.issues?.issues || []).filter(
       (i) =>
         (!f.important || i.important) &&
         (f.source === "all" || i.source === f.source) &&
         (!f.code || i.code === f.code) &&
         (!q || [i.statistic_id, i.name].filter(Boolean).some((v) => String(v).toLowerCase().includes(q)))
     );
+  }
+
+  /** Only statistics that exist and are not protected (Energy) can be selected for deletion. */
+  _issueSelectable(i) {
+    return i.rows != null && i.verdict !== "protected";
+  }
+
+  /** Text with `code` spans. */
+  _rich(text) {
+    return esc(text).replace(/`([^`]+)`/g, "<code>$1</code>");
+  }
+
+  /** The step-by-step guide for one problem (guides.js): where to change what, with ready YAML. */
+  _guideHtml(i) {
+    const g = buildGuide(i, this._lang);
+    const btn = (l) =>
+      l.nav
+        ? `<button class="btn small" data-action="nav" data-value="${esc(l.nav)}">${ic(l.icon)}${esc(l.label)}</button>`
+        : l.more
+        ? `<button class="btn small" data-action="more-info" data-value="${esc(l.more)}">${ic(l.icon)}${esc(l.label)}</button>`
+        : `<a class="doc-link" href="${esc(l.doc)}" target="_blank" rel="noopener noreferrer">${ic(l.icon)}${esc(l.label)}</a>`;
+    const options = g.options
+      .map(
+        (o) => `<div class="guide-opt"><h4>${ic("tip")}${this._rich(o.title)}</h4>
+          ${o.where ? `<div class="where">${ic("folder")}<span>${this._rich(o.where)}</span></div>` : ""}
+          ${o.steps?.length ? `<ol>${o.steps.map((x) => `<li>${this._rich(x)}</li>`).join("")}</ol>` : ""}
+          ${(o.codes || [])
+            .map(
+              (cd) =>
+                `<div class="muted small">${esc(cd.label)}</div><div class="snippet"><pre>${esc(cd.text)}</pre>${iconBtn("copy-snippet", "copy", this.t("copy_snippet"), { value: cd.text })}</div>`
+            )
+            .join("")}
+          ${o.links?.length ? `<div class="guide-links">${o.links.map(btn).join("")}</div>` : ""}</div>`
+      )
+      .join("");
+    const del = g.deletable && this._issueSelectable(i) ? note("delete", this.t("guide_delete_hint")) : "";
+    return `<div class="guide"><p class="guide-intro">${this._rich(g.intro)}</p><div class="guide-grid">${options}</div>${del}</div>`;
+  }
+
+  _issues() {
+    const s = this._s;
+    if (s.errors.issues) return this._error(s.errors.issues);
+    if (!s.issues) return this._spinner("issues", this.t("issues_wait"));
+    const res = s.issues;
+    const f = s.iss;
+    const HA_FIXABLE = new Set(["units_changed", "state_class_removed", "mean_type_changed"]);
+    const GONE = new Set(["no_state", "entity_no_longer_recorded", "lts_stalled"]);
+    const rb = res.row_bytes || 78;
+
+    const list = this._issueList();
     const limit = this._topN() + f.limit;
 
     const tiles = res.codes
@@ -2841,36 +3764,59 @@ class DatabaseCleanerPanel extends HTMLElement {
       .map((i) => {
         const links = [];
         if (HA_FIXABLE.has(i.code))
-          links.push(`<button class="btn small" data-action="nav" data-value="/developer-tools/statistics">${ic("chart")}${this.t("act_ha_stats")}</button>`);
+          links.push(iconBtn("nav", "chart", this.t("act_ha_stats"), { value: "/developer-tools/statistics" }));
         if (i.code !== "no_state" && i.statistic_id.includes("."))
-          links.push(`<button class="btn small" data-action="more-info" data-value="${esc(i.statistic_id)}">${ic("open")}${this.t("act_entity")}</button>`);
+          links.push(iconBtn("more-info", "open", this.t("act_entity"), { value: i.statistic_id }));
         if (GONE.has(i.code) && !i.important)
-          links.push(`<button class="btn small" data-action="to-cand" data-value="${esc(i.statistic_id)}">${ic("candidates")}${this.t("act_candidates")}</button>`);
+          links.push(iconBtn("to-cand", "candidates", this.t("act_candidates"), { value: i.statistic_id }));
         const sub = [i.name && i.name !== i.statistic_id ? esc(i.name) : null].filter(Boolean).join("");
         const tags = [
           `<span class="tag">${this.t(i.source === "ha" ? "src_ha" : "src_own")}</span>`,
           i.in_repairs ? `<span class="tag">${this.t("in_repairs")}</span>` : "",
           i.important ? `<span class="tag" title="${esc(this.t("important_hint"))}">${ic("bolt")}</span>` : "",
         ].join(" ");
+        const open = f.guide === i.id;
         return `<tr>
-          <td class="name"><div class="eid">${esc(i.statistic_id)} ${this._refsBadge(i.refs)}</div>
+          <td class="check-cell">${
+            this._issueSelectable(i)
+              ? `<input type="checkbox" data-field="iss-select" value="${esc(i.statistic_id)}" ${f.selected.has(i.statistic_id) ? "checked" : ""}>`
+              : ""
+          }</td>
+          <td class="name"><div class="eid">${this._ent(i.statistic_id)} ${this._refsBadge(i.refs)}</div>
             <div class="muted small">${sub}</div></td>
           <td><div class="lg-i" title="${this.t(`sev_${i.severity}`)}">${badge(i.severity, SEV_COLOR[i.severity] || OFF_COLOR, "sm")}<b>${this.t(
           `i_${i.code}`
         )}</b> ${tags}</div>
             <div class="muted small">${this._issueDetail(i)}</div>
             <div class="muted small tipline hint">${ic("tip")}<span>${this.t(`i_fix_${i.code}`)}</span></div></td>
-          <td class="actions">${links.join(" ")}</td>
-        </tr>`;
+          <td class="num">${i.rows != null ? `${this.n(i.rows)}<div class="muted small">≈ ${this.size(i.rows * rb)}</div>` : "—"}</td>
+          <td class="actions">${iconBtn("guide", "maintenance", this.t("guide_btn"), { value: i.id, cls: open ? "on" : "" })}${links.join("")}</td>
+        </tr>${open ? `<tr class="guide-row"><td colspan="5">${this._guideHtml(i)}</td></tr>` : ""}`;
       })
       .join("");
+
+    const rowsById = new Map();
+    for (const i of res.issues) if (i.rows != null && !rowsById.has(i.statistic_id)) rowsById.set(i.statistic_id, i.rows);
+    const selRows = [...f.selected].reduce((a, id) => a + (rowsById.get(id) || 0), 0);
+    const noneSel = !f.selected.size;
+    const selBar = `<div class="selbar" data-tour="issues-selbar">
+        <span class="lg-i">${badge("select", ACCENT, "sm")}<b>${this.t("selected")}: ${this.n(f.selected.size)}</b> <span class="muted">· ${this.n(
+      selRows
+    )} ${this.t("rows").toLowerCase()} · ≈ ${this.size(selRows * rb)}</span></span>
+        <button class="btn small" data-action="iss-select-shown">${ic("select")}${this.t("select_shown")}</button>
+        ${iconBtn("iss-clear", "clear", this.t("clear_selection"), { disabled: noneSel })}
+        ${iconBtn("iss-copy", "copy", this.t("copy_list"), { disabled: noneSel })}
+        <button class="btn small danger" data-action="iss-delete" ${noneSel || s.jobs?.current ? "disabled" : ""}>${ic("delete")}${this.t(
+      "delete_selected"
+    )}</button>
+      </div>`;
 
     const errors = (res.sources?.errors || []).length
       ? note("warning", `${this.t("scan_errors")}: ${esc(res.sources.errors.join("; "))}`, "warn")
       : "";
     const body = list.length
-      ? `<div class="table-wrap"><table>
-          <thead><tr><th>${this.t("g_statistic")}</th><th>${this.t("col_problem")}</th><th></th></tr></thead>
+      ? `${selBar}<div class="table-wrap" data-tour="issues-table"><table>
+          <thead><tr><th></th><th>${this.t("g_statistic")}</th><th>${this.t("col_problem")}</th><th class="num">${this.t("rows")}</th><th></th></tr></thead>
           <tbody>${rows}</tbody></table></div>${this._more(list.length, limit, "more-iss")}`
       : `<div class="note ico">${ic("check")}<span>${this.t("issues_none")}</span></div>`;
 
@@ -2895,6 +3841,34 @@ class DatabaseCleanerPanel extends HTMLElement {
         </div>
         ${body}
       </div>`;
+  }
+
+  _sparkTitle(h) {
+    return this.t("spark_title", { max: this.n(Math.max(0, ...(h || [0]))) });
+  }
+
+  /** Advice for one chatty entity: what its integration offers, then the options that work for any entity. */
+  _tips(i) {
+    const lang = this._lang;
+    const key = ADVICE[i.hint] ? i.hint : ADVICE[i.integration] ? i.integration : "other";
+    const fill = (t) => t.replaceAll("{entity}", i.entity_id);
+    const rich = (t) => esc(fill(t)).replace(/`([^`]+)`/g, "<code>$1</code>");
+    const block = (title, adv) =>
+      `<div class="tip-block"><h4>${title}</h4><ul>${adv.tips[lang].map((x) => `<li>${rich(x)}</li>`).join("")}</ul>${
+        adv.code
+          ? `<div class="snippet"><pre>${esc(fill(adv.code))}</pre>${iconBtn("copy-snippet", "copy", this.t("copy_snippet"), { value: fill(adv.code) })}</div>`
+          : ""
+      }${
+        adv.docs
+          ? `<a class="doc-link" href="${esc(adv.docs)}" target="_blank" rel="noopener noreferrer">${ic("open")}${this.t("tips_docs")}</a>`
+          : ""
+      }</div>`;
+    const adv = ADVICE[key];
+    const label = adv.name || i.integration || "";
+    return `<div class="tips">${block(`${ic("tip")}${this.t("tips_for")}${label ? `: ${esc(label)}` : ""}`, adv)}${block(
+      `${ic("tip")}${this.t("tips_general")}`,
+      ADVICE_GENERAL
+    )}<div class="muted small">${this.t("tips_note")}</div></div>`;
   }
 
   // ---------------------------------------------------------------- states
@@ -2964,6 +3938,8 @@ class DatabaseCleanerPanel extends HTMLElement {
           .slice(0, 10)
           .map((i) => ({
             label: i.entity_id,
+            labelHtml: this._ent(i.entity_id),
+            spark: miniBars(i.hourly, this._sparkTitle(i.hourly)),
             value: i.rows,
             text: `${this.n(i.rows)} · ${this.pct(i.rows, res.total_rows, 0)}`,
             color: GROUP_COLOR.states,
@@ -2978,22 +3954,27 @@ class DatabaseCleanerPanel extends HTMLElement {
             .filter(Boolean)
             .map(esc)
             .join(" · ");
-          return `<tr><td class="name"><div class="eid">${esc(i.entity_id)}${
+          const open = f.tips === i.entity_id;
+          return `<tr><td class="name"><div class="eid">${this._ent(i.entity_id)}${
             i.diagnostic ? ' <span class="tag">diag</span>' : ""
           }</div><div class="muted small">${sub}</div></td>
             <td class="num barcell"><div class="bar"><span style="width:${(100 * i.rows) / max}%"></span></div>${this.n(i.rows)}</td>
+            <td class="hide-narrow spark-cell">${miniBars(i.hourly, this._sparkTitle(i.hourly))}</td>
             <td class="num">${this.dec(i.per_hour, i.per_hour >= 10 ? 0 : 1)}</td>
             <td class="num hide-narrow">${this.n(i.distinct_states)}</td>
             <td class="num hide-narrow">${i.unavailable ? this.n(i.unavailable) : "—"}</td>
-            <td class="num">${this.pct(i.rows, res.total_rows)}</td></tr>`;
+            <td class="num">${this.pct(i.rows, res.total_rows)}</td>
+            <td class="num acts">${iconBtn("tips", "tip", this.t("tips_btn"), { value: i.entity_id, cls: open ? "on" : "" })}</td></tr>${
+              open ? `<tr class="tips-row"><td colspan="8">${this._tips(i)}</td></tr>` : ""
+            }`;
         })
         .join("");
       table = `<div class="table-wrap"><table><thead><tr>
         ${this._sortHead("name", this.t("g_entity"), f.sort, "sort-st", "")}
-        ${this._sortHead("rows", this.t("rows"), f.sort, "sort-st")}<th class="num">${this.t("per_hour")}</th>
+        ${this._sortHead("rows", this.t("rows"), f.sort, "sort-st")}<th class="hide-narrow">${this.t("col_24h")}</th><th class="num">${this.t("per_hour")}</th>
         ${this._sortHead("distinct", this.t("distinct"), f.sort, "sort-st", "num hide-narrow")}
         ${this._sortHead("unavailable", this.t("unavailable"), f.sort, "sort-st", "num hide-narrow")}
-        <th class="num">${this.t("share")}</th></tr></thead><tbody>${rows}</tbody></table></div>${this._more(
+        <th class="num">${this.t("share")}</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>${this._more(
         sorted.length,
         limit,
         "more-st"
@@ -3158,7 +4139,7 @@ class DatabaseCleanerPanel extends HTMLElement {
         <div><span class="rl">${ic("database")}${this.t("db_size")}</span><b>${this.size(h.file.size)}</b></div>
         <div><span class="rl">${ic("journal")}${this.t("wal")}</span><b>${this.size(h.file.wal_size)}</b></div>
         <div><span class="rl">${ic("disk")}${this.t("disk_free")}</span><b>${this.size(h.file.disk?.free)}</b></div>
-        <div><span class="rl">${ic("free")}${this.t("free_pages")}</span><b>${fp != null ? fp + " %" : "—"}</b></div>
+        <div><span class="rl">${ic("free")}${this.t("free_pages")}</span><b>${fp != null ? fp + " %" + (h.reclaimable_bytes != null ? " · " + this.size(h.reclaimable_bytes) : "") : "—"}</b></div>
         <div><span class="rl">${ic("vacuum")}${this.t("reclaimable")}</span><b>${this.size(h.reclaimable_bytes)}</b></div>
       </div></div>`;
 
@@ -3543,6 +4524,90 @@ const STYLE = `
   .ba span.after { background: var(--success-color, #43a047); }
   .tabsum { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 13px; color: var(--dc-muted); margin-top: 10px; }
   .tabsum span { display: inline-flex; align-items: center; gap: 6px; }
+  /* ---- layout: two columns on wide screens, one on phones ---- */
+  .pair { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 460px), 1fr)); gap: 16px; align-items: start; }
+  /* ---- compact icon buttons, entity names ---- */
+  .ibtn { display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; padding: 0; flex: none;
+    border: 1px solid transparent; border-radius: 50%; background: none; color: var(--dc-muted); cursor: pointer; }
+  .ibtn .mdi { width: 18px; height: 18px; vertical-align: 0; }
+  .ibtn:hover:not(:disabled) { color: var(--dc-accent); background: color-mix(in srgb, var(--dc-accent) 12%, transparent); }
+  .ibtn.danger:hover:not(:disabled) { color: var(--error-color, #db4437); background: color-mix(in srgb, var(--error-color, #db4437) 12%, transparent); }
+  .ibtn.on { color: var(--dc-accent); border-color: var(--dc-accent); }
+  .ibtn:disabled { opacity: 0.4; cursor: default; }
+  .acts { white-space: nowrap; }
+  .ent { display: inline-flex; align-items: center; gap: 2px; max-width: 100%; }
+  .entlink { background: none; border: 0; padding: 0; font: inherit; color: inherit; cursor: pointer; text-align: left; overflow-wrap: anywhere; }
+  .entlink:hover { color: var(--dc-accent); text-decoration: underline; }
+  .entcopy { display: inline-flex; background: none; border: 0; padding: 2px; color: var(--dc-muted); cursor: pointer; border-radius: 50%; opacity: 0.45; flex: none; }
+  .entcopy .mdi { width: 14px; height: 14px; vertical-align: 0; }
+  .entcopy:hover { opacity: 1; color: var(--dc-accent); }
+  .toast-float { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 20; padding: 8px 16px; border-radius: 20px;
+    background: var(--dc-card); border: 1px solid var(--dc-border); box-shadow: 0 4px 16px rgba(0,0,0,0.4); opacity: 0; pointer-events: none; transition: opacity 0.2s; }
+  .toast-float.show { opacity: 1; }
+  .btn.solid { background: var(--dc-accent); color: #fff; }
+  .btn.solid:disabled { background: none; color: var(--dc-accent); }
+  .dialog.wide { width: min(720px, 100%); }
+  .arc-list { max-height: 48vh; overflow: auto; border: 1px solid var(--dc-border); border-radius: 10px; margin: 8px 0; }
+  /* ---- 24-hour mini charts ---- */
+  .mini24 { width: 72px; height: 16px; display: block; }
+  .mini24 .on { fill: var(--dc-accent); }
+  .mini24 .off { fill: rgba(127,127,127,0.35); }
+  .hbars.sp .hb { grid-template-columns: minmax(120px, 30%) 76px 1fr auto; }
+  .hb-s { display: flex; }
+  .spark-cell { width: 84px; }
+  /* ---- advice ---- */
+  .tips-row td { background: color-mix(in srgb, var(--dc-accent) 4%, transparent); }
+  .tips { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 12px 24px; font-size: 13px; white-space: normal; }
+  .tips > .muted { grid-column: 1 / -1; }
+  .tip-block h4 { margin: 0 0 6px; font-size: 13px; font-weight: 500; display: flex; align-items: center; gap: 6px; }
+  .tip-block ul { margin: 0 0 8px; padding-left: 18px; }
+  .tip-block li { margin: 4px 0; }
+  code { background: rgba(127,127,127,0.18); padding: 0 4px; border-radius: 4px; font-size: 12px; }
+  .snippet { position: relative; margin-bottom: 8px; }
+  .snippet pre { margin: 0; padding: 8px 40px 8px 10px; background: rgba(127,127,127,0.10); border: 1px solid var(--dc-border); border-radius: 8px; max-height: 220px; overflow: auto; }
+  .snippet .ibtn { position: absolute; top: 4px; right: 4px; }
+  .doc-link { display: inline-flex; align-items: center; gap: 6px; color: var(--dc-accent); font-size: 12px; text-decoration: none; }
+  .doc-link .mdi { width: 14px; height: 14px; vertical-align: 0; }
+  .cmd-row td { padding-top: 0; max-width: 0; width: 100%; }
+  .cmds pre { white-space: pre-wrap; overflow-wrap: anywhere; max-height: none; }
+  .cmds { border: 1px dashed var(--dc-border); border-radius: 10px; padding: 10px 12px; white-space: normal; }
+  .cmds .controls { margin-bottom: 6px; }
+  /* ---- fix guides ---- */
+  .guide-row td { background: color-mix(in srgb, var(--warning-color, #ffa600) 5%, transparent); max-width: 0; width: 100%; }
+  .guide { white-space: normal; font-size: 13px; }
+  .guide-intro { margin: 4px 0 12px; font-size: 14px; }
+  .guide-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 12px; align-items: start; }
+  .guide-opt { border: 1px solid var(--dc-border); border-radius: 10px; padding: 10px 12px; min-width: 0; }
+  .guide-opt h4 { margin: 0 0 6px; font-size: 13px; font-weight: 500; display: flex; align-items: flex-start; gap: 6px; }
+  .guide-opt h4 .mdi { margin-top: 1px; flex: none; color: var(--warning-color, #ffa600); }
+  .guide-opt .where { display: flex; align-items: flex-start; gap: 6px; margin: 4px 0 6px; color: var(--dc-muted); }
+  .guide-opt .where .mdi { flex: none; margin-top: 1px; }
+  .guide-opt ol { margin: 4px 0 8px; padding-left: 20px; }
+  .guide-opt li { margin: 4px 0; }
+  .guide-opt .snippet pre { white-space: pre-wrap; overflow-wrap: anywhere; max-height: none; }
+  .guide-links { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; margin-top: 6px; }
+  /* ---- live card ---- */
+  .live.on { border-color: color-mix(in srgb, var(--dc-accent) 50%, var(--dc-border)); }
+  h2 .pulse { margin-left: 8px; }
+  .live-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px; margin-bottom: 12px; }
+  .live-tile { --c: var(--dc-accent); display: flex; align-items: center; gap: 12px; padding: 10px 12px; border: 1px solid var(--dc-border); border-radius: 12px; }
+  .live-tile.flash { animation: flash 0.9s ease-out; }
+  @keyframes flash { 0% { background: color-mix(in srgb, var(--c) 28%, transparent); } 100% { background: transparent; } }
+  .live-num { font-size: 22px; font-variant-numeric: tabular-nums; }
+  .live-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 12px 24px; margin-bottom: 8px; }
+  .live-chart { display: flex; gap: 2px; height: 110px; padding: 4px; border-radius: 10px; background: rgba(127,127,127,0.08); }
+  .live-chart .lc { flex: 1; min-width: 0; height: 100%; display: flex; align-items: flex-end; gap: 1px; }
+  .live-chart i { flex: 1; display: block; height: 0; border-radius: 2px 2px 0 0; transition: height 0.5s ease; }
+  .live-chart i.s { background: var(--sc); }
+  .live-chart i.e { background: var(--ec); }
+  .live-legend { display: flex; gap: 16px; margin-top: 6px; }
+  .live-who { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px; }
+  .live-who .donut { width: 140px; height: 140px; }
+  .live-legend-list { flex: 1; min-width: 180px; display: flex; flex-direction: column; gap: 6px; }
+  .live-lg { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+  .live-lg[hidden] { display: none; }
+  .live-lg .lg-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .live-arc { transition: stroke-dasharray 0.6s ease, stroke-dashoffset 0.6s ease; }
   @media (max-width: 700px) {
     main { padding: 12px; gap: 12px; }
     .tab { flex-direction: column; gap: 2px; padding: 8px 10px; font-size: 11px; }

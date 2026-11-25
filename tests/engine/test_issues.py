@@ -186,3 +186,26 @@ def test_from_validation_marks_open_repairs_and_merge_sorts_important_first() ->
     assert merged["important"] == 1
     assert merged["problems"] == 1  # no_state is info, units_changed is a warning
     assert {c["key"] for c in merged["codes"]} == {"units_changed", "no_state"}
+
+
+def test_issue_data_carries_what_the_fix_guides_need() -> None:
+    states = {
+        "sensor.e": st("5", "measurement", "energy", "J"),  # unit not allowed, state class not allowed
+        "sensor.t": st("20", None, "temperature", "°C"),  # missing state_class
+    }
+    res = {(i["code"], i["statistic_id"]): i for i in run(states, [item("sensor.e"), item("sensor.t")])}
+    assert res[("unit_not_allowed", "sensor.e")]["data"]["allowed"] == ["MWh", "Wh", "kWh"]
+    assert res[("state_class_not_allowed", "sensor.e")]["data"]["allowed"] == ["total", "total_increasing"]
+    assert res[("missing_state_class", "sensor.t")]["data"]["allowed"] == ["measurement"]
+
+
+def test_merge_attaches_size_inputs_and_current_attributes() -> None:
+    found = [{"id": "own:x:sensor.e", "statistic_id": "sensor.e", "code": "x", "severity": "warning",
+              "source": "own", "name": None, "important": False, "refs": [], "data": {}}]
+    items = [item("sensor.e", verdict="review", integration="template", registered=True, unit="kWh", rows=480, first_ts=1.0)]
+    attrs = {"sensor.e": {"state_class": None, "device_class": "energy", "unit": "kWh"}}
+    out = issues.merge(found, items, None, attrs)["issues"][0]
+    assert out["rows"] == 480 and out["verdict"] == "review" and out["integration"] == "template"
+    assert out["registered"] is True and out["stat_source"] == "recorder" and out["source"] == "own"
+    assert out["entity"] == {"state_class": None, "device_class": "energy", "unit": "kWh"}
+    assert out["first_ts"] == 1.0 and out["unit"] == "kWh"

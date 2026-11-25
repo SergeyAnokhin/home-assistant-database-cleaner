@@ -19,6 +19,9 @@ class EntityInfo:
     disabled: bool = False
     entity_category: str | None = None  # "diagnostic" | "config" | None
     registered: bool = True  # False: known only from the state machine (YAML, no unique_id)
+    # Finer than `integration` where it matters for advice: "zigbee2mqtt" for MQTT entities of a
+    # Zigbee2MQTT device. None -> use `integration`.
+    hint: str | None = None
 
 
 @dataclass(slots=True)
@@ -61,11 +64,13 @@ def describe(entity_id: str, ctx: Context) -> dict:
             "disabled": False,
             "diagnostic": False,
             "registered": False,
+            "hint": None,
         }
     return {
         "name": info.name,
         "domain": domain,
         "integration": info.integration,
+        "hint": info.hint,
         "device_id": info.device_id,
         "device": info.device_name,
         "area": info.area,

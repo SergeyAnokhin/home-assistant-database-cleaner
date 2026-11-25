@@ -33,6 +33,7 @@ from .const import (
     VERSION,
 )
 from .coordinator import DatabaseCleanerCoordinator
+from .download import DownloadView
 from .engine import Analyzer
 from .engine.db import sqlite_path_from_url
 from .issues import IssuesCache
@@ -109,6 +110,7 @@ async def _async_register_panel(hass: HomeAssistant) -> None:
         await hass.http.async_register_static_paths(
             [StaticPathConfig(STATIC_URL, str(FRONTEND_DIR), cache_headers=False)]
         )
+        hass.http.register_view(DownloadView())
         hass.data[_STATIC_REGISTERED] = True
 
     mtime = await hass.async_add_executor_job(lambda: int((FRONTEND_DIR / "panel.js").stat().st_mtime))

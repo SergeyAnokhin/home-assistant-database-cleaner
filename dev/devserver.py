@@ -92,13 +92,13 @@ class FakeJobs:
         job.update(status=status, step=None, finished=time.time())
         if status == "done":
             job["result"] = {
-                "backup": {"deleted": n, "deleted_rows": n * 30000, "size_before": 1166639104,
-                           "size_after": 1166639104 - n * 30000 * 78, "archive": "undo-dev.jsonl.gz"},
                 "delete": {"deleted": n, "deleted_rows": n * 30000, "size_before": 1166639104,
-                           "size_after": 1166639104 - n * 30000 * 78, "archive": "undo-dev.jsonl.gz"},
+                           "size_after": 1166639104 - (n * 30000 * 78 if params.get("repack") else 0),
+                           "freed_bytes": n * 30000 * 78, "archive": "undo-dev.jsonl.gz",
+                           "backup": "home-assistant_v2-dev.db" if params.get("backup", True) else None},
                 "repack": {"size_before": 1166639104, "size_after": 1100000000},
                 "restore": {"restored": 6, "rows": 6 * 30000},
-            }[kind] if kind != "backup" else {"backup": "home-assistant_v2-dev.db", "size": 1166639104, "removed": []}
+            }.get(kind) if kind != "backup" else {"backup": "home-assistant_v2-dev.db", "size": 1166639104, "removed": []}
         with self._lock:
             self.history.insert(0, job)
             self.current = None
@@ -123,6 +123,24 @@ def build_app(db: Path, storage: Path, exclude: Path):
 
     jobs = FakeJobs()
     size = db.stat().st_size
+    page = size // 4096
+    sim = {"states": 1_000_000, "events": 500_000, "short_term": 40_000, "statistics": 900_000}
+    top_names = [i["entity_id"] for i in analyzer.states(ctx, 24 * 3600)["items"][:8]] or ["sensor.dev"]
+    ids = analyzer.statistic_ids()[:40]
+    t0 = time.time()
+    store = {
+        "backups": [
+            {"name": f"home-assistant_v2-2026112{d}-0300{d}.db", "file": f"/share/database_cleaner/backups/home-assistant_v2-2026112{d}-0300{d}.db",
+             "created_ts": t0 - d * 86400 * 1.7, "size": size, "verified": True, "schema_version": 53,
+             "sha256": "9f2c" * 16}
+            for d in (1, 2)
+        ],
+        "archives": [
+            {"name": "undo-20261120-101500-ab12cd34.jsonl.gz", "created_ts": t0 - 5 * 86400, "complete": True,
+             "statistics": [{"statistic_id": sid, "rows": 700 + 37 * k} for k, sid in enumerate(ids)],
+             "rows": sum(700 + 37 * k for k in range(len(ids)))}
+        ],
+    }
 
     def dev_issues(refresh: bool) -> dict:
         """Preview of the Problems tab: no live states here, so only what the copy can tell.
@@ -154,10 +172,10 @@ def build_app(db: Path, storage: Path, exclude: Path):
             {}, items, unit_rules={}, state_class_rules={}, sum_drops=drops, recorded=ctx.recorded, now=analyzer.now()
         )
         merged = engine_issues.merge([*engine_issues.from_validation(validation, repairs), *own], items)
-        return {**merged, "sources": {"sensors": 0, "statistics": len(items), "errors": [
+        return {**merged, "row_bytes": stats["row_bytes"], "sources": {"sensors": 0, "statistics": len(items), "errors": [
             "dev preview: no live sensor states, so only part of the checks runs"]}, "age_s": 0}
 
-    def preflight(kind: str, repack: bool) -> dict:
+    def preflight(kind: str, repack: bool, backup_first: bool = True) -> dict:
         free = engine_backup.free_space(str(db.parent))
         checks = [
             {"key": "ha_running", "ok": True, "value": None},
@@ -165,7 +183,7 @@ def build_app(db: Path, storage: Path, exclude: Path):
             {"key": "schema", "ok": True, "value": 53},
             {"key": "backlog", "ok": True, "value": 0},
         ]
-        if kind in ("backup", "delete", "repack"):
+        if kind == "backup" or (kind in ("delete", "repack") and backup_first):
             need = engine_backup.required_space(str(db))
             checks.append({"key": "backup_space", "ok": free >= need, "value": {"free": free, "required": need}})
         if kind == "repack" or (kind == "delete" and repack):
@@ -173,7 +191,9 @@ def build_app(db: Path, storage: Path, exclude: Path):
             checks.append({"key": "repack_space", "ok": free >= need, "value": {"free": free, "required": need}})
         if kind in ("delete", "repack"):
             checks.append({"key": "integrity", "ok": True, "value": ["ok"]})
-        return {"ok": all(c["ok"] for c in checks), "checks": checks, "fresh_backup": None}
+        last = store["backups"][0] if store["backups"] else None
+        return {"ok": all(c["ok"] for c in checks), "checks": checks, "fresh_backup": None,
+                "last_backup": {"name": last["name"], "created_ts": last["created_ts"], "size": size} if last else None}
 
     def handle(msg: dict):
         kind = msg.get("type", "").split("/", 1)[-1]
@@ -182,13 +202,16 @@ def build_app(db: Path, storage: Path, exclude: Path):
                 "settings": {"backup_dir": "/share/database_cleaner/backups (dev simulation)",
                              "archive_dir": "/share/database_cleaner/backups/undo", "keep": 2,
                              "max_age_hours": 24, "batch_rows": 50000, "undo_days": 30},
-                "db": {"size": size, "wal_size": 0, "free_pages_ratio": 0.0,
+                "db": {"size": size, "wal_size": 0, "free_pages_ratio": 0.12, "free_bytes": int(size * 0.12),
                        "free_db_dir": engine_backup.free_space(str(db.parent))},
-                "backups": [], "archives": [], "fresh_backup": None, "jobs": jobs.snapshot(),
+                "backups": store["backups"], "archives": store["archives"], "fresh_backup": None,
+                "last_backup": {"name": store["backups"][0]["name"], "created_ts": store["backups"][0]["created_ts"],
+                                "size": size} if store["backups"] else None,
+                "jobs": jobs.snapshot(),
             }
         if kind == "preflight":
             time.sleep(0.8)
-            return preflight(msg["kind"], bool(msg.get("repack")))
+            return preflight(msg["kind"], bool(msg.get("repack")), msg.get("backup", True))
         if kind == "job/status":
             return jobs.snapshot()
         if kind == "job/cancel":
@@ -197,7 +220,35 @@ def build_app(db: Path, storage: Path, exclude: Path):
             if msg.get("kind") != "backup" and not msg.get("confirm"):
                 raise ValueError("Destructive jobs need confirm: true")
             ids = msg.get("statistic_ids") or []
-            return {"job_id": jobs.start(msg["kind"], {"count": len(ids), "repack": msg.get("repack")})}
+            return {"job_id": jobs.start(msg["kind"], {"count": len(ids), "repack": msg.get("repack"),
+                                                       "backup": msg.get("backup", True)})}
+        if kind == "backup/delete":
+            store["backups"] = [b for b in store["backups"] if b["name"] != msg["name"]]
+            return {"deleted": msg["name"]}
+        if kind == "archive/delete":
+            store["archives"] = [a for a in store["archives"] if a["name"] != msg["name"]]
+            return {"deleted": msg["name"]}
+        if kind == "download/sign":
+            return {"url": f"/dev-download/{msg['name']}"}
+        if kind == "live":
+            # simulation: the frozen database copy never grows, so invent writes in recorder-like batches
+            import random
+            batch = random.random() < 0.6
+            added = {"states": random.randint(5, 80) if batch else 0, "events": random.randint(2, 30) if batch else 0,
+                     "short_term": 0, "statistics": 0}
+            for k, v in added.items():
+                sim[k] += v
+            weights = [8, 5, 3, 2, 1, 1, 1, 1]
+            top, left = [], added["states"]
+            for name, w in zip(top_names, weights):
+                n = min(left, int(added["states"] * w / 21) + (1 if left else 0))
+                if n:
+                    top.append({"entity_id": name, "rows": n})
+                    left -= n
+            return {"ts": time.time(), "cursor": dict(sim), "added": added if msg.get("cursor") else None,
+                    "top": top if msg.get("cursor") else [], "top_events": [], "size": size + sim["states"] * 70,
+                    "wal_size": 4_000_000 + random.randint(0, 900_000), "backlog": random.randint(0, 40),
+                    "recording": True, "commit_interval": 5}
         if kind == "info":
             return {"version": "dev", "db_path": str(db), "options": OPTIONS, "recorder": recorder}
         if kind == "overview":
@@ -238,6 +289,14 @@ def make_handler(app):
             elif re.fullmatch(r"/[a-z_]+\.js", path) and (PANEL_JS.parent / path[1:]).is_file():
                 # other frontend modules (tour.js), same directory as panel.js only
                 self._send(200, (PANEL_JS.parent / path[1:]).read_bytes(), "text/javascript; charset=utf-8")
+            elif path.startswith("/dev-download/"):
+                body = b"dev server: this stands in for the real file"
+                self.send_response(200)
+                self.send_header("Content-Type", "application/octet-stream")
+                self.send_header("Content-Disposition", f'attachment; filename="{path.rsplit("/", 1)[-1]}"')
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
             else:
                 self._send(404, b"not found", "text/plain")
 

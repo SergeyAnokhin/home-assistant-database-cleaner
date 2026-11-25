@@ -165,18 +165,29 @@ class DbSensor(_Base):
 
 
 class ChattySensor(_Base):
-    """Rank N of the entities that wrote the most `states` rows in the last 24 h."""
+    """Rank N of the entities that wrote the most `states` rows in the last 24 h.
+
+    The state is the entity's name (so "who is the loudest?" is readable on a dashboard); the
+    attributes say how loud: rows in the last 24 h / 7 d / 30 d and the average per hour for each.
+    """
 
     _attr_translation_key = "chatty"
-    _attr_native_unit_of_measurement = ROWS
     _attr_icon = "mdi:account-voice"
     # Keep the leader's entity_id in history, but not the counters that change every update.
     _unrecorded_attributes = frozenset(
         {
-            "count_1h",
-            "count_window",
-            "window_start",
+            "top_entity_name",
+            "updates_1h",
+            "updates_24h",
+            "updates_7d",
+            "updates_30d",
+            "updates_in_database",
             "per_hour_24h",
+            "per_hour_7d",
+            "per_hour_30d",
+            "hourly_24h",
+            "data_hours",
+            "window_start",
             "distinct_states_24h",
             "share_of_all_24h",
             "lts_rows",
@@ -196,24 +207,35 @@ class ChattySensor(_Base):
         return top[self._rank - 1] if len(top) >= self._rank else None
 
     @property
-    def native_value(self) -> int | None:
+    def native_value(self) -> str | None:
         item = self._item()
-        return None if item is None else item["count_24h"]
+        if item is None:
+            return None
+        return (item["name"] or item["entity_id"])[:255]  # a state is at most 255 characters
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         item = self._item()
         if item is None:
             return {}
+        chatty = self.coordinator.data["chatty"]
         return {
             # not "entity_id": the frontend treats that attribute as group members
             "top_entity_id": item["entity_id"],
             "top_entity_name": item["name"],
-            "count_1h": item["count_1h"],
-            "count_24h": item["count_24h"],
-            "count_window": item["count_window"],
-            "window_start": _iso(self.coordinator.data["chatty"]["window_start"]),
+            "updates_1h": item["count_1h"],
+            "updates_24h": item["count_24h"],
+            "updates_7d": item["count_7d"],
+            "updates_30d": item["count_30d"],
+            "updates_in_database": item["count_window"],
             "per_hour_24h": item["per_hour_24h"],
+            "per_hour_7d": item["per_hour_7d"],
+            "per_hour_30d": item["per_hour_30d"],
+            # rows per hour, oldest first, last value = the latest hour: shows regular vs bursty
+            "hourly_24h": item["hourly_24h"],
+            # the database may hold less than 7 / 30 days: the rates above cover this span
+            "data_hours": chatty["data_hours"],
+            "window_start": _iso(chatty["window_start"]),
             "distinct_states_24h": item["distinct_states_24h"],
             "share_of_all_24h": item["share_of_all_24h"],
             "lts_rows": item["lts_rows"],

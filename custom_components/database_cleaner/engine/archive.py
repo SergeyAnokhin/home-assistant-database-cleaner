@@ -128,6 +128,29 @@ def read_archive(directory: str, name: str, statistic_ids: set[str] | None = Non
                 yield rec
 
 
+def archive_file(directory: str, name: str) -> Path:
+    """Path of one undo archive (for downloading). Refuses foreign names and missing files."""
+    if "/" in name or "\\" in name or not (name.startswith(PREFIX) and name.endswith(SUFFIX)):
+        raise ArchiveError(f"not an undo archive: {name}")
+    path = Path(directory) / name
+    if not path.is_file():
+        raise ArchiveError(f"archive not found: {name}")
+    return path
+
+
+def delete_archive(directory: str, name: str) -> bool:
+    """Delete one undo archive (and its index) by name. Refuses anything that is not ours."""
+    if "/" in name or "\\" in name or not (name.startswith(PREFIX) and name.endswith(SUFFIX)):
+        raise ArchiveError(f"not an undo archive: {name}")
+    path = Path(directory) / name
+    index = path.with_name(name + ".json")
+    if not path.exists() and not index.exists():
+        raise ArchiveError(f"archive not found: {name}")
+    path.unlink(missing_ok=True)
+    index.unlink(missing_ok=True)
+    return True
+
+
 def expire_archives(directory: str, max_age_s: float, now: float | None = None) -> list[str]:
     now = now or time.time()
     removed = []

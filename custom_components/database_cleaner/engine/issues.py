@@ -158,7 +158,16 @@ def evaluate(
 
         allowed_units = unit_rules.get(device_class) if device_class else None
         if allowed_units is not None and unit is not None and numeric and unit not in allowed_units:
-            out.append(_issue("unit_not_allowed", eid, "warning", {"unit": unit, "device_class": device_class}, item, st))
+            out.append(
+                _issue(
+                    "unit_not_allowed",
+                    eid,
+                    "warning",
+                    {"unit": unit, "device_class": device_class, "allowed": sorted((str(u) for u in allowed_units if u), key=str)},
+                    item,
+                    st,
+                )
+            )
 
         allowed_classes = state_class_rules.get(device_class) if device_class else None
         if allowed_classes is not None and state_class and state_class not in allowed_classes:
@@ -206,7 +215,16 @@ def evaluate(
             and device_class in state_class_rules
             and is_recorded(eid)
         ):
-            out.append(_issue("missing_state_class", eid, "info", {"unit": unit, "device_class": device_class}, item, st))
+            out.append(
+                _issue(
+                    "missing_state_class",
+                    eid,
+                    "info",
+                    {"unit": unit, "device_class": device_class, "allowed": sorted(state_class_rules[device_class])},
+                    item,
+                    st,
+                )
+            )
 
         if item is not None and item.get("refs") and unavailable:
             since = st.get("last_changed_ts")
@@ -250,8 +268,17 @@ def from_validation(validation: Mapping[str, Iterable[Mapping]], repairs: Iterab
     return out
 
 
-def merge(issues: Iterable[dict], items: Iterable[Mapping], names: Mapping[str, str | None] | None = None) -> dict:
-    """Attach refs/names from the statistics list, sort (important first) and count."""
+def merge(
+    issues: Iterable[dict],
+    items: Iterable[Mapping],
+    names: Mapping[str, str | None] | None = None,
+    attrs: Mapping[str, Mapping] | None = None,
+) -> dict:
+    """Attach refs/names/size from the statistics list, sort (important first) and count.
+
+    ``attrs``: entity_id -> {state_class, device_class, unit} as the sensor reports them now; the panel
+    uses it to write a concrete "how to fix" example for the entity.
+    """
     by_id = {i["statistic_id"]: i for i in items}
     result = []
     for issue in issues:
@@ -262,7 +289,16 @@ def merge(issues: Iterable[dict], items: Iterable[Mapping], names: Mapping[str, 
             issue["important"] = bool(refs)
             issue["category"] = item.get("category")
             issue["rows"] = item.get("rows")
+            issue["verdict"] = item.get("verdict")
+            issue["stat_source"] = item.get("source")  # "recorder" or an external source (not "ha"/"own")
+            issue["integration"] = item.get("integration")
+            issue["registered"] = item.get("registered")
+            issue["first_ts"] = item.get("first_ts")
+            issue["last_ts"] = item.get("last_ts")
+            issue["unit"] = item.get("unit")
             issue["name"] = issue.get("name") or item.get("name")
+        if attrs and issue["statistic_id"] in attrs:
+            issue["entity"] = dict(attrs[issue["statistic_id"]])
         issue["name"] = issue.get("name") or (names or {}).get(issue["statistic_id"])
         result.append(issue)
     result.sort(key=lambda i: (not i["important"], SEVERITY_ORDER.get(i["severity"], 9), i["statistic_id"], i["code"]))

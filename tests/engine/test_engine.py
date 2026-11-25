@@ -155,3 +155,27 @@ def test_quick_check(analyzer):
     res = analyzer.quick_check()
     assert res["ok"] is True
     assert res["quick_check"] == ["ok"]
+
+
+def test_states_hourly_profile(analyzer, ctx):
+    items = {i["entity_id"]: i for i in analyzer.states(ctx, 24 * 3600)["items"]}
+    healthy = items["sensor.healthy_temp"]["hourly"]
+    # 1 row/min for the last 2 hours: the two newest hourly buckets hold everything
+    assert len(healthy) == 24 and sum(healthy) == 120
+    assert healthy[-1] == 60 and healthy[-2] == 60 and sum(healthy[:-2]) == 0
+    # 1 row/hour: regular profile (the oldest bucket also takes the row exactly 24 h old)
+    assert sum(items["sensor.yaml_mean"]["hourly"]) == 25
+    assert min(items["sensor.yaml_mean"]["hourly"][1:]) == 1
+
+
+def test_chatty_rates_over_day_week_month(analyzer, ctx):
+    res = analyzer.chatty(ctx, 2)
+    first, second = res["top"]
+    assert (first["count_24h"], first["count_7d"], first["count_30d"]) == (120, 120, 120)
+    assert (second["count_24h"], second["count_7d"], second["count_30d"]) == (25, 30, 30)
+    # the database only covers the last 29 h: 7 d and 30 d rates are averaged over that span
+    span_h = 29.0
+    assert res["data_hours"] == round(span_h, 1)
+    assert first["per_hour_7d"] == round(120 / span_h, 1) == first["per_hour_30d"]
+    assert first["per_hour_24h"] == 5.0
+    assert sum(first["hourly_24h"]) == 120 and len(first["hourly_24h"]) == 24

@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Final
 
 DOMAIN: Final = "database_cleaner"
-VERSION: Final = "0.4.0"
+VERSION: Final = "0.5.0"
 
 PANEL_URL_PATH: Final = "database-cleaner"
 PANEL_COMPONENT: Final = "database-cleaner-panel"
